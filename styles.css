@@ -160,6 +160,72 @@ h2 {
   font-size: 1.1rem;
 }
 
+.hero-controller {
+  width: 84px;
+  margin: 0 auto 12px;
+}
+
+.hero-controller svg {
+  width: 100%;
+  height: auto;
+}
+
+.wordmark {
+  font-size: 3.4rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+.wordmark-accent {
+  background: linear-gradient(90deg, #2fd0ff, #c026ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tagline {
+  color: var(--text-muted);
+  letter-spacing: 0.2em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 28px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 32px;
+  list-style: none;
+  margin-bottom: 40px;
+}
+
+.badge-row li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+}
+
+.badge-row li a:hover {
+  color: var(--text);
+}
+
+.badge-row svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.badge-row li:nth-child(1) svg { color: #2fd0ff; }
+.badge-row li:nth-child(2) svg { color: #7c5cff; }
+.badge-row li:nth-child(3) svg { color: #ff5c9e; }
+.badge-row li:nth-child(4) svg { color: #3fd1c5; }
+
 .hero-actions {
   display: flex;
   gap: 16px;
@@ -238,6 +304,258 @@ h2 {
 .feature p {
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+.section-lede {
+  text-align: center;
+  color: var(--text-muted);
+  max-width: 520px;
+  margin: -20px auto 48px;
+}
+
+/* Shop */
+.shop {
+  padding: 100px 0;
+  background: var(--bg-alt);
+}
+
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: 480px;
+  margin: 0 auto 48px;
+  padding: 20px 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.wallet-coin {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffd15c, #d9971f);
+  color: #241a02;
+}
+
+.wallet-coin svg {
+  width: 26px;
+  height: 26px;
+}
+
+.wallet-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.wallet-label {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.wallet-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.wallet-cta {
+  padding: 10px 18px;
+  font-size: 0.9rem;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.shop-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.shop-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+}
+
+.shop-thumb {
+  height: 120px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.shop-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.shop-card h3 {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.shop-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 18px;
+  min-height: 54px;
+}
+
+.shop-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shop-price {
+  font-weight: 700;
+  color: #ffd15c;
+}
+
+/* Leaderboards */
+.leaderboards {
+  padding: 100px 0;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 16px 20px;
+  text-align: left;
+}
+
+.leaderboard-table thead {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.leaderboard-table th {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.leaderboard-table tbody tr {
+  border-top: 1px solid var(--border);
+}
+
+.leaderboard-table td:last-child {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rank-1 { background: linear-gradient(135deg, #ffd15c, #d9971f); color: #241a02; }
+.rank-2 { background: linear-gradient(135deg, #d7dbe6, #9ba1b5); color: #1a1c2b; }
+.rank-3 { background: linear-gradient(135deg, #e2a464, #a95f24); color: #241a02; }
+
+/* Challenges */
+.challenges {
+  padding: 100px 0;
+  background: var(--bg-alt);
+}
+
+.challenge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.challenge-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.challenge-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.challenge-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.tag-daily { background: rgba(47, 208, 255, 0.15); color: #2fd0ff; }
+.tag-weekly { background: rgba(124, 92, 255, 0.15); color: #a48bff; }
+.tag-event { background: rgba(255, 92, 158, 0.15); color: #ff5c9e; }
+
+.challenge-reward {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.challenge-card h3 {
+  margin-bottom: 8px;
+}
+
+.challenge-card p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-bottom: 18px;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+}
+
+.progress-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* About */

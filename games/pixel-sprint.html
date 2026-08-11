@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Sprint — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Pixel <span>Sprint</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="320"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Pixel Sprint</h2>
+    <p>Jump over obstacles and run as far as you can. Press Space, Up, or tap the screen to jump.</p>
+    <button class="btn" id="startBtn">Start Sprint</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Distance: <b id="distEl">0</b>m</span>
+  <span>Best: <b id="bestEl">0</b>m</span>
+  <span>Speed: <b id="speedEl">1.0x</b></span>
+</div>
+<p class="controls-hint">Controls: Space / Up Arrow / Tap to jump</p>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const groundY = H - 40;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const distEl = document.getElementById('distEl');
+const bestEl = document.getElementById('bestEl');
+const speedEl = document.getElementById('speedEl');
+
+let best = Number(localStorage.getItem('sprint-best') || 0);
+bestEl.textContent = best;
+
+let player, obstacles, dist, speed, running, spawnTimer, animId, lastTime;
+
+function resetGame() {
+  player = { x: 80, y: groundY - 30, w: 26, h: 30, vy: 0, jumping: false };
+  obstacles = [];
+  dist = 0;
+  speed = 4;
+  spawnTimer = 0;
+  running = true;
+}
+
+function jump() {
+  if (!running) return;
+  if (!player.jumping) {
+    player.vy = -11;
+    player.jumping = true;
+  }
+}
+
+function spawnObstacle() {
+  const h = 24 + Math.random() * 26;
+  obstacles.push({ x: W + 20, y: groundY - h, w: 20, h });
+}
+
+function update(dt) {
+  player.vy += 0.55;
+  player.y += player.vy;
+  if (player.y > groundY - player.h) {
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.jumping = false;
+  }
+
+  spawnTimer += dt;
+  const spawnRate = Math.max(650, 1400 - speed * 60);
+  if (spawnTimer > spawnRate) {
+    spawnObstacle();
+    spawnTimer = 0;
+  }
+
+  for (const o of obstacles) o.x -= speed;
+  obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+  for (const o of obstacles) {
+    const hit = player.x < o.x + o.w && player.x + player.w > o.x &&
+                player.y < o.y + o.h && player.y + player.h > o.y;
+    if (hit) {
+      endGame();
+      return;
+    }
+  }
+
+  dist += speed * 0.05;
+  speed = 4 + dist / 120;
+  distEl.textContent = Math.floor(dist);
+  speedEl.textContent = (speed / 4).toFixed(1) + 'x';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#171933');
+  grad.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#2a2d54';
+  ctx.fillRect(0, groundY, W, H - groundY);
+
+  const grad2 = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y + player.h);
+  grad2.addColorStop(0, '#2fd0ff');
+  grad2.addColorStop(1, '#c026ff');
+  ctx.fillStyle = grad2;
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  ctx.fillStyle = '#ffb84c';
+  for (const o of obstacles) ctx.fillRect(o.x, o.y, o.w, o.h);
+}
+
+function loop(t) {
+  if (!running) return;
+  const dt = lastTime ? t - lastTime : 16;
+  lastTime = t;
+  update(dt);
+  if (!running) return;
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animId);
+  const finalDist = Math.floor(dist);
+  if (finalDist > best) {
+    best = finalDist;
+    localStorage.setItem('sprint-best', best);
+    bestEl.textContent = best;
+  }
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>Wiped Out</h2><p>You sprinted <b>${finalDist}m</b>. Best: <b>${best}m</b></p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Sprint Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  resetGame();
+  lastTime = 0;
+  animId = requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener('click', start);
+window.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    jump();
+  }
+});
+canvas.addEventListener('pointerdown', jump);
+</script>
+
+</body>
+</html>

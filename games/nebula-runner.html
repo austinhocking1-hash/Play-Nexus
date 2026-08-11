@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nebula Runner — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Nebula <span>Runner</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="480" height="560"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Nebula Runner</h2>
+    <p>Dodge the asteroids and survive as long as you can. Use the arrow keys, A/D, or drag with your mouse/finger.</p>
+    <button class="btn" id="startBtn">Start Run</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+  <span>Speed: <b id="speedEl">1.0x</b></span>
+</div>
+<p class="controls-hint">Controls: &larr; &rarr; or A / D, or click-drag</p>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const scoreEl = document.getElementById('scoreEl');
+const bestEl = document.getElementById('bestEl');
+const speedEl = document.getElementById('speedEl');
+
+let best = Number(localStorage.getItem('nebula-best') || 0);
+bestEl.textContent = best;
+
+let ship, asteroids, score, speed, running, lastSpawn, animId;
+let keys = {};
+
+function resetGame() {
+  ship = { x: W / 2, y: H - 60, w: 34, h: 34, speed: 6 };
+  asteroids = [];
+  score = 0;
+  speed = 1;
+  keys = {};
+  lastSpawn = 0;
+  running = true;
+}
+
+function spawnAsteroid() {
+  const size = 20 + Math.random() * 26;
+  asteroids.push({
+    x: Math.random() * (W - size) + size / 2,
+    y: -size,
+    r: size / 2,
+    vy: (1.6 + Math.random() * 1.6) * speed
+  });
+}
+
+function drawShip() {
+  ctx.save();
+  ctx.translate(ship.x, ship.y);
+  const grad = ctx.createLinearGradient(-17, -17, 17, 17);
+  grad.addColorStop(0, '#2fd0ff');
+  grad.addColorStop(1, '#c026ff');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, -18);
+  ctx.lineTo(16, 16);
+  ctx.lineTo(0, 8);
+  ctx.lineTo(-16, 16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawAsteroid(a) {
+  ctx.save();
+  ctx.translate(a.x, a.y);
+  ctx.fillStyle = '#8a8fb8';
+  ctx.beginPath();
+  ctx.arc(0, 0, a.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function update(dt) {
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) ship.x -= ship.speed;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) ship.x += ship.speed;
+  ship.x = Math.max(20, Math.min(W - 20, ship.x));
+
+  lastSpawn += dt;
+  const spawnRate = Math.max(220, 700 - speed * 60);
+  if (lastSpawn > spawnRate) {
+    spawnAsteroid();
+    lastSpawn = 0;
+  }
+
+  for (const a of asteroids) a.y += a.vy;
+  asteroids = asteroids.filter(a => a.y - a.r < H);
+
+  for (const a of asteroids) {
+    const dx = a.x - ship.x;
+    const dy = a.y - ship.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < a.r + 14) {
+      endGame();
+      return;
+    }
+  }
+
+  score += dt * 0.03 * speed;
+  speed = 1 + score / 400;
+  scoreEl.textContent = Math.floor(score);
+  speedEl.textContent = speed.toFixed(1) + 'x';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, H);
+  grad.addColorStop(0, '#171933');
+  grad.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  for (const a of asteroids) drawAsteroid(a);
+  drawShip();
+}
+
+let lastTime = 0;
+function loop(t) {
+  if (!running) return;
+  const dt = lastTime ? t - lastTime : 16;
+  lastTime = t;
+  update(dt);
+  if (!running) return;
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animId);
+  const finalScore = Math.floor(score);
+  if (finalScore > best) {
+    best = finalScore;
+    localStorage.setItem('nebula-best', best);
+    bestEl.textContent = best;
+  }
+  msg.classList.remove('hidden');
+  msg.innerHTML = `
+    <h2>Run Over</h2>
+    <p>You scored <b>${finalScore}</b> points. Best: <b>${best}</b></p>
+  `;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Try Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  resetGame();
+  lastTime = 0;
+  animId = requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener('click', start);
+
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+let dragging = false;
+canvas.addEventListener('pointerdown', () => dragging = true);
+window.addEventListener('pointerup', () => dragging = false);
+canvas.addEventListener('pointermove', e => {
+  if (!dragging || !ship) return;
+  const rect = canvas.getBoundingClientRect();
+  ship.x = (e.clientX - rect.left) * (W / rect.width);
+});
+</script>
+
+</body>
+</html>
