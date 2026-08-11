@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puzzle Forge — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Puzzle <span>Forge</span></span>
+</div>
+
+<div class="game-stage" style="width: 384px; height: 384px;">
+  <div class="puzzle-grid" id="grid"></div>
+  <div class="game-msg" id="msg">
+    <h2>Puzzle Forge</h2>
+    <p>Slide the tiles to put them back in order, 1 through 15, with the blank in the bottom-right corner.</p>
+    <button class="btn" id="startBtn">Shuffle & Play</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Moves: <b id="movesEl">0</b></span>
+  <span>Time: <b id="timeEl">0s</b></span>
+  <span>Best moves: <b id="bestEl">–</b></span>
+</div>
+<p class="controls-hint">Click a tile next to the blank space to slide it</p>
+
+<script>
+const gridEl = document.getElementById('grid');
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const movesEl = document.getElementById('movesEl');
+const timeEl = document.getElementById('timeEl');
+const bestEl = document.getElementById('bestEl');
+
+const SIZE = 4;
+let tiles = [];
+let moves = 0;
+let startTime = 0;
+let timerId = null;
+let won = false;
+
+let best = localStorage.getItem('puzzle-best');
+if (best) bestEl.textContent = best;
+
+function solvedOrder() {
+  const arr = [];
+  for (let i = 1; i < SIZE * SIZE; i++) arr.push(i);
+  arr.push(0);
+  return arr;
+}
+
+function isSolvable(arr) {
+  const nums = arr.filter(n => n !== 0);
+  let inversions = 0;
+  for (let i = 0; i < nums.length; i++) {
+    for (let j = i + 1; j < nums.length; j++) {
+      if (nums[i] > nums[j]) inversions++;
+    }
+  }
+  const blankRow = Math.floor(arr.indexOf(0) / SIZE);
+  const blankRowFromBottom = SIZE - blankRow;
+  if (blankRowFromBottom % 2 === 0) return inversions % 2 === 1;
+  return inversions % 2 === 0;
+}
+
+function shuffle() {
+  let arr;
+  do {
+    arr = solvedOrder();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  } while (!isSolvable(arr) || isSolved(arr));
+  return arr;
+}
+
+function isSolved(arr) {
+  const target = solvedOrder();
+  return arr.every((v, i) => v === target[i]);
+}
+
+function render() {
+  gridEl.innerHTML = '';
+  tiles.forEach((val, i) => {
+    const div = document.createElement('div');
+    div.className = 'puzzle-tile' + (val === 0 ? ' empty' : '');
+    div.textContent = val === 0 ? '' : val;
+    div.addEventListener('click', () => tryMove(i));
+    gridEl.appendChild(div);
+  });
+}
+
+function tryMove(i) {
+  if (won) return;
+  const blank = tiles.indexOf(0);
+  const row = Math.floor(i / SIZE), col = i % SIZE;
+  const brow = Math.floor(blank / SIZE), bcol = blank % SIZE;
+  const adjacent = (Math.abs(row - brow) === 1 && col === bcol) || (Math.abs(col - bcol) === 1 && row === brow);
+  if (!adjacent) return;
+  [tiles[i], tiles[blank]] = [tiles[blank], tiles[i]];
+  moves++;
+  movesEl.textContent = moves;
+  render();
+  if (isSolved(tiles)) {
+    won = true;
+    clearInterval(timerId);
+    if (!best || moves < Number(best)) {
+      best = moves;
+      localStorage.setItem('puzzle-best', best);
+      bestEl.textContent = best;
+    }
+    setTimeout(() => {
+      msg.classList.remove('hidden');
+      msg.innerHTML = `<h2>Solved!</h2><p>You solved it in <b>${moves}</b> moves.</p>`;
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = 'Play Again';
+      btn.onclick = start;
+      msg.appendChild(btn);
+    }, 300);
+  }
+}
+
+function tick() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  timeEl.textContent = elapsed + 's';
+}
+
+function start() {
+  msg.classList.add('hidden');
+  tiles = shuffle();
+  moves = 0;
+  won = false;
+  movesEl.textContent = 0;
+  startTime = Date.now();
+  timeEl.textContent = '0s';
+  clearInterval(timerId);
+  timerId = setInterval(tick, 1000);
+  render();
+}
+
+startBtn.addEventListener('click', start);
+render();
+tiles = solvedOrder();
+render();
+</script>
+
+</body>
+</html>

@@ -14,7 +14,9 @@
     <nav>
       <ul>
         <li><a href="#games">Games</a></li>
-        <li><a href="#features">Features</a></li>
+        <li><a href="#leaderboards">Leaderboards</a></li>
+        <li><a href="#challenges">Challenges</a></li>
+        <li><a href="#shop">Shop</a></li>
         <li><a href="#about">About</a></li>
       </ul>
     </nav>
@@ -24,8 +26,46 @@
 
 <section class="hero">
   <div class="container hero-content">
-    <h1>Your Next Favorite Game<br>Starts Here</h1>
-    <p>Discover, play, and connect with a growing library of browser games. No downloads. No waiting. Just play.</p>
+    <div class="hero-controller" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="url(#controllerGradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="controllerGradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#2fd0ff"/>
+            <stop offset="100%" stop-color="#c026ff"/>
+          </linearGradient>
+        </defs>
+        <path d="M6 11h.01M9 8v6M7.5 9.5h3M15 11.5h.01M17.5 9.5h.01M17.5 13h.01M15 13h.01"/>
+        <path d="M7.5 6h9a4.5 4.5 0 0 1 4.44 3.79l.68 4.5A3 3 0 0 1 18.7 18a3 3 0 0 1-2.52-1.36L15 15H9l-1.18 1.64A3 3 0 0 1 5.3 18a3 3 0 0 1-2.97-3.71l.68-4.5A4.5 4.5 0 0 1 7.5 6Z"/>
+      </svg>
+    </div>
+    <h1 class="wordmark">PLAY<span class="wordmark-accent">NEXUS</span></h1>
+    <p class="tagline">PLAY MORE. &nbsp; CONNECT. &nbsp; LEVEL UP.</p>
+    <ul class="badge-row">
+      <li>
+        <a href="#games">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 6h9a4.5 4.5 0 0 1 4.44 3.79l.68 4.5A3 3 0 0 1 18.7 18a3 3 0 0 1-2.52-1.36L15 15H9l-1.18 1.64A3 3 0 0 1 5.3 18a3 3 0 0 1-2.97-3.71l.68-4.5A4.5 4.5 0 0 1 7.5 6Z"/><path d="M9 8v6M7.5 9.5h3"/><circle cx="15" cy="11.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="9.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="13" r=".5" fill="currentColor"/></svg>
+        <span>Games</span>
+        </a>
+      </li>
+      <li>
+        <a href="#shop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.1 1.1-2 2.5-2s2.5.7 2.5 1.8c0 2.2-5 1.4-5 3.6 0 1.1 1.1 1.8 2.5 1.8s2.5-.9 2.5-2"/></svg>
+        <span>NexBucks</span>
+        </a>
+      </li>
+      <li>
+        <a href="#leaderboards">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4v1a3 3 0 0 0 3 3M17 5h3v1a3 3 0 0 1-3 3"/></svg>
+        <span>Leaderboards</span>
+        </a>
+      </li>
+      <li>
+        <a href="#challenges">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 3 14h6l-2 8 10-12h-6l2-8Z"/></svg>
+        <span>Challenges</span>
+        </a>
+      </li>
+    </ul>
     <div class="hero-actions">
       <a href="#games" class="btn btn-primary">Browse Games</a>
       <a href="#about" class="btn btn-secondary">Learn More</a>
@@ -41,25 +81,174 @@
         <div class="game-thumb thumb-1"></div>
         <h3>Nebula Runner</h3>
         <p>Dodge asteroids and race through the stars in this fast-paced arcade shooter.</p>
-        <a href="#" class="btn btn-small">Play</a>
+        <a href="games/nebula-runner.html" class="btn btn-small">Play</a>
       </article>
       <article class="game-card">
         <div class="game-thumb thumb-2"></div>
         <h3>Puzzle Forge</h3>
         <p>Bend blocks, solve chains, and unlock 100+ brain-twisting levels.</p>
-        <a href="#" class="btn btn-small">Play</a>
+        <a href="games/puzzle-forge.html" class="btn btn-small">Play</a>
       </article>
       <article class="game-card">
         <div class="game-thumb thumb-3"></div>
         <h3>Castle Siege</h3>
         <p>Build your defenses and outlast waves of enemies in this strategy classic.</p>
-        <a href="#" class="btn btn-small">Play</a>
+        <a href="games/castle-siege.html" class="btn btn-small">Play</a>
       </article>
       <article class="game-card">
         <div class="game-thumb thumb-4"></div>
         <h3>Pixel Sprint</h3>
         <p>A retro platformer with tight controls and hand-crafted pixel worlds.</p>
-        <a href="#" class="btn btn-small">Play</a>
+        <a href="games/pixel-sprint.html" class="btn btn-small">Play</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="shop" class="shop">
+  <div class="container">
+    <h2>NexBucks Shop</h2>
+    <p class="section-lede">Earn NexBucks by playing games, topping leaderboards, and completing challenges. Redeem them for skins, boosts, and exclusive gear.</p>
+
+    <div class="wallet">
+      <div class="wallet-coin" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.1 1.1-2 2.5-2s2.5.7 2.5 1.8c0 2.2-5 1.4-5 3.6 0 1.1 1.1 1.8 2.5 1.8s2.5-.9 2.5-2"/></svg>
+      </div>
+      <div class="wallet-info">
+        <span class="wallet-label">Your Balance</span>
+        <span class="wallet-value">2,450 NexBucks</span>
+      </div>
+      <a href="#challenges" class="btn btn-secondary wallet-cta">Earn More</a>
+    </div>
+
+    <div class="shop-grid">
+      <article class="shop-card">
+        <div class="shop-thumb thumb-1"></div>
+        <span class="shop-tag">Skin</span>
+        <h3>Nova Ranger Skin</h3>
+        <p>A holographic skin for Nebula Runner with animated trail effects.</p>
+        <div class="shop-footer">
+          <span class="shop-price">🪙 800</span>
+          <a href="#" class="btn btn-small">Redeem</a>
+        </div>
+      </article>
+      <article class="shop-card">
+        <div class="shop-thumb thumb-2"></div>
+        <span class="shop-tag">Boost</span>
+        <h3>Double XP Token</h3>
+        <p>Doubles XP earned from any game for the next 24 hours.</p>
+        <div class="shop-footer">
+          <span class="shop-price">🪙 350</span>
+          <a href="#" class="btn btn-small">Redeem</a>
+        </div>
+      </article>
+      <article class="shop-card">
+        <div class="shop-thumb thumb-3"></div>
+        <span class="shop-tag">Badge</span>
+        <h3>Siege Master Badge</h3>
+        <p>A rare profile badge for elite Castle Siege commanders.</p>
+        <div class="shop-footer">
+          <span class="shop-price">🪙 1,200</span>
+          <a href="#" class="btn btn-small">Redeem</a>
+        </div>
+      </article>
+      <article class="shop-card">
+        <div class="shop-thumb thumb-4"></div>
+        <span class="shop-tag">Theme</span>
+        <h3>Retro Pixel Theme</h3>
+        <p>Unlock a retro CRT-style theme for your Play Nexus profile.</p>
+        <div class="shop-footer">
+          <span class="shop-price">🪙 600</span>
+          <a href="#" class="btn btn-small">Redeem</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="leaderboards" class="leaderboards">
+  <div class="container">
+    <h2>Global Leaderboards</h2>
+    <p class="section-lede">See who's topping the charts across Play Nexus this week.</p>
+    <table class="leaderboard-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Player</th>
+          <th>Top Game</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="rank rank-1">1</span></td>
+          <td>NovaStrike</td>
+          <td>Nebula Runner</td>
+          <td>98,430</td>
+        </tr>
+        <tr>
+          <td><span class="rank rank-2">2</span></td>
+          <td>ByteBender</td>
+          <td>Puzzle Forge</td>
+          <td>91,110</td>
+        </tr>
+        <tr>
+          <td><span class="rank rank-3">3</span></td>
+          <td>ShadowVex</td>
+          <td>Castle Siege</td>
+          <td>87,905</td>
+        </tr>
+        <tr>
+          <td><span class="rank">4</span></td>
+          <td>PixelPhoenix</td>
+          <td>Pixel Sprint</td>
+          <td>82,340</td>
+        </tr>
+        <tr>
+          <td><span class="rank">5</span></td>
+          <td>QuantumJinx</td>
+          <td>Nebula Runner</td>
+          <td>79,215</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="challenges" class="challenges">
+  <div class="container">
+    <h2>Active Challenges</h2>
+    <p class="section-lede">Complete challenges to earn XP, badges, and exclusive rewards.</p>
+    <div class="challenge-grid">
+      <article class="challenge-card">
+        <div class="challenge-head">
+          <span class="challenge-tag tag-daily">Daily</span>
+          <span class="challenge-reward">+150 XP</span>
+        </div>
+        <h3>Asteroid Gauntlet</h3>
+        <p>Survive 3 minutes without taking damage in Nebula Runner.</p>
+        <div class="progress-bar"><div class="progress-fill" style="width: 65%"></div></div>
+        <span class="progress-label">65% complete</span>
+      </article>
+      <article class="challenge-card">
+        <div class="challenge-head">
+          <span class="challenge-tag tag-weekly">Weekly</span>
+          <span class="challenge-reward">+500 XP</span>
+        </div>
+        <h3>Chain Reaction</h3>
+        <p>Clear 10 combo chains of 5 or more in Puzzle Forge.</p>
+        <div class="progress-bar"><div class="progress-fill" style="width: 40%"></div></div>
+        <span class="progress-label">40% complete</span>
+      </article>
+      <article class="challenge-card">
+        <div class="challenge-head">
+          <span class="challenge-tag tag-event">Event</span>
+          <span class="challenge-reward">Exclusive Badge</span>
+        </div>
+        <h3>Siege Breaker</h3>
+        <p>Defeat the boss wave in Castle Siege without losing a tower.</p>
+        <div class="progress-bar"><div class="progress-fill" style="width: 20%"></div></div>
+        <span class="progress-label">20% complete</span>
       </article>
     </div>
   </div>

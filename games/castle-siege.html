@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Castle Siege — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Castle <span>Siege</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="360"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Castle Siege</h2>
+    <p>Click enemies before they reach your castle on the left. Survive as many waves as you can — the castle has 10 HP.</p>
+    <button class="btn" id="startBtn">Start Defense</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Wave: <b id="waveEl">1</b></span>
+  <span>Castle HP: <b id="hpEl">10</b></span>
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Click enemies to destroy them before they reach the castle</p>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const waveEl = document.getElementById('waveEl');
+const hpEl = document.getElementById('hpEl');
+const scoreEl = document.getElementById('scoreEl');
+const bestEl = document.getElementById('bestEl');
+
+let best = Number(localStorage.getItem('siege-best') || 0);
+bestEl.textContent = best;
+
+let enemies, hp, wave, score, running, spawnTimer, waveTimer, animId, lastTime;
+
+function resetGame() {
+  enemies = [];
+  hp = 10;
+  wave = 1;
+  score = 0;
+  spawnTimer = 0;
+  waveTimer = 0;
+  running = true;
+  hpEl.textContent = hp;
+  waveEl.textContent = wave;
+  scoreEl.textContent = score;
+}
+
+function spawnEnemy() {
+  const speed = 0.4 + wave * 0.06 + Math.random() * 0.2;
+  const hpMax = 1 + Math.floor(wave / 3);
+  enemies.push({
+    x: W + 20,
+    y: 80 + Math.random() * (H - 140),
+    r: 16,
+    speed,
+    hp: hpMax,
+    hpMax
+  });
+}
+
+function drawCastle() {
+  ctx.fillStyle = '#7c5cff';
+  ctx.fillRect(0, 0, 50, H);
+  ctx.fillStyle = '#2a2d54';
+  for (let y = 10; y < H; y += 40) ctx.fillRect(40, y, 10, 20);
+}
+
+function drawEnemy(e) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, e.r);
+  grad.addColorStop(0, '#ff9ec5');
+  grad.addColorStop(1, '#ff5c9e');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, e.r, 0, Math.PI * 2);
+  ctx.fill();
+  if (e.hpMax > 1) {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(-16, -e.r - 10, 32, 5);
+    ctx.fillStyle = '#3fd1c5';
+    ctx.fillRect(-16, -e.r - 10, 32 * (e.hp / e.hpMax), 5);
+  }
+  ctx.restore();
+}
+
+function update(dt) {
+  spawnTimer += dt;
+  const spawnRate = Math.max(500, 1600 - wave * 80);
+  if (spawnTimer > spawnRate) {
+    spawnEnemy();
+    spawnTimer = 0;
+  }
+
+  waveTimer += dt;
+  if (waveTimer > 12000) {
+    wave++;
+    waveTimer = 0;
+    waveEl.textContent = wave;
+  }
+
+  for (const e of enemies) e.x -= e.speed * (dt / 16);
+
+  for (const e of enemies) {
+    if (e.x - e.r < 50) {
+      hp--;
+      e.dead = true;
+      hpEl.textContent = hp;
+    }
+  }
+  enemies = enemies.filter(e => !e.dead);
+
+  if (hp <= 0) {
+    endGame();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#171933');
+  grad.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  drawCastle();
+  for (const e of enemies) drawEnemy(e);
+}
+
+function loop(t) {
+  if (!running) return;
+  const dt = lastTime ? t - lastTime : 16;
+  lastTime = t;
+  update(dt);
+  if (!running) return;
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animId);
+  const finalScore = score;
+  if (finalScore > best) {
+    best = finalScore;
+    localStorage.setItem('siege-best', best);
+    bestEl.textContent = best;
+  }
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>Castle Fallen</h2><p>You survived to wave <b>${wave}</b> with a score of <b>${finalScore}</b>. Best: <b>${best}</b></p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Defend Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  resetGame();
+  lastTime = 0;
+  animId = requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener('click', start);
+
+canvas.addEventListener('click', e => {
+  if (!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  for (const en of enemies) {
+    const dx = en.x - mx, dy = en.y - my;
+    if (Math.sqrt(dx * dx + dy * dy) < en.r + 6) {
+      en.hp--;
+      if (en.hp <= 0) {
+        en.dead = true;
+        score += 10;
+        scoreEl.textContent = score;
+      }
+      break;
+    }
+  }
+  enemies = enemies.filter(e => !e.dead);
+});
+</script>
+
+</body>
+</html>
