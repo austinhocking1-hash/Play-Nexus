@@ -20,9 +20,37 @@
         <li><a href="#about">About</a></li>
       </ul>
     </nav>
-    <a href="#games" class="btn btn-primary nav-cta">Play Now</a>
+    <div class="nav-account" id="navAccount">
+      <button class="btn btn-secondary nav-cta" id="signInBtn">Sign In</button>
+    </div>
   </div>
 </header>
+
+<div class="auth-panel hidden" id="authPanel">
+  <div class="auth-panel-inner">
+    <button class="auth-close" id="authClose" aria-label="Close">&times;</button>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Sign In</button>
+      <button class="auth-tab" data-tab="signup">Create Account</button>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <label>Username or Email<input type="text" id="loginId" required></label>
+      <label>Password<input type="password" id="loginPassword" required></label>
+      <p class="auth-error" id="loginError"></p>
+      <button type="submit" class="btn btn-primary">Sign In</button>
+    </form>
+
+    <form id="signupForm" class="auth-form hidden">
+      <label>Username<input type="text" id="signupUsername" required minlength="3" maxlength="20"></label>
+      <label>Email<input type="email" id="signupEmail" required></label>
+      <label>Password<input type="password" id="signupPassword" required minlength="8"></label>
+      <p class="auth-error" id="signupError"></p>
+      <button type="submit" class="btn btn-primary">Create Account</button>
+      <p class="auth-hint">New accounts start with 500 NexBucks.</p>
+    </form>
+  </div>
+</div>
 
 <section class="hero">
   <div class="container hero-content">
@@ -76,31 +104,8 @@
 <section id="games" class="games">
   <div class="container">
     <h2>Featured Games</h2>
-    <div class="game-grid">
-      <article class="game-card">
-        <div class="game-thumb thumb-1"></div>
-        <h3>Nebula Runner</h3>
-        <p>Dodge asteroids and race through the stars in this fast-paced arcade shooter.</p>
-        <a href="games/nebula-runner.html" class="btn btn-small">Play</a>
-      </article>
-      <article class="game-card">
-        <div class="game-thumb thumb-2"></div>
-        <h3>Puzzle Forge</h3>
-        <p>Bend blocks, solve chains, and unlock 100+ brain-twisting levels.</p>
-        <a href="games/puzzle-forge.html" class="btn btn-small">Play</a>
-      </article>
-      <article class="game-card">
-        <div class="game-thumb thumb-3"></div>
-        <h3>Castle Siege</h3>
-        <p>Build your defenses and outlast waves of enemies in this strategy classic.</p>
-        <a href="games/castle-siege.html" class="btn btn-small">Play</a>
-      </article>
-      <article class="game-card">
-        <div class="game-thumb thumb-4"></div>
-        <h3>Pixel Sprint</h3>
-        <p>A retro platformer with tight controls and hand-crafted pixel worlds.</p>
-        <a href="games/pixel-sprint.html" class="btn btn-small">Play</a>
-      </article>
+    <div class="game-grid" id="gameGrid">
+      <p class="loading-note">Loading games…</p>
     </div>
   </div>
 </section>
@@ -116,52 +121,13 @@
       </div>
       <div class="wallet-info">
         <span class="wallet-label">Your Balance</span>
-        <span class="wallet-value">2,450 NexBucks</span>
+        <span class="wallet-value" id="walletBalance">Sign in to see balance</span>
       </div>
       <a href="#challenges" class="btn btn-secondary wallet-cta">Earn More</a>
     </div>
 
-    <div class="shop-grid">
-      <article class="shop-card">
-        <div class="shop-thumb thumb-1"></div>
-        <span class="shop-tag">Skin</span>
-        <h3>Nova Ranger Skin</h3>
-        <p>A holographic skin for Nebula Runner with animated trail effects.</p>
-        <div class="shop-footer">
-          <span class="shop-price">🪙 800</span>
-          <a href="#" class="btn btn-small">Redeem</a>
-        </div>
-      </article>
-      <article class="shop-card">
-        <div class="shop-thumb thumb-2"></div>
-        <span class="shop-tag">Boost</span>
-        <h3>Double XP Token</h3>
-        <p>Doubles XP earned from any game for the next 24 hours.</p>
-        <div class="shop-footer">
-          <span class="shop-price">🪙 350</span>
-          <a href="#" class="btn btn-small">Redeem</a>
-        </div>
-      </article>
-      <article class="shop-card">
-        <div class="shop-thumb thumb-3"></div>
-        <span class="shop-tag">Badge</span>
-        <h3>Siege Master Badge</h3>
-        <p>A rare profile badge for elite Castle Siege commanders.</p>
-        <div class="shop-footer">
-          <span class="shop-price">🪙 1,200</span>
-          <a href="#" class="btn btn-small">Redeem</a>
-        </div>
-      </article>
-      <article class="shop-card">
-        <div class="shop-thumb thumb-4"></div>
-        <span class="shop-tag">Theme</span>
-        <h3>Retro Pixel Theme</h3>
-        <p>Unlock a retro CRT-style theme for your Play Nexus profile.</p>
-        <div class="shop-footer">
-          <span class="shop-price">🪙 600</span>
-          <a href="#" class="btn btn-small">Redeem</a>
-        </div>
-      </article>
+    <div class="shop-grid" id="shopGrid">
+      <p class="loading-note">Loading shop…</p>
     </div>
   </div>
 </section>
@@ -179,37 +145,8 @@
           <th>Score</th>
         </tr>
       </thead>
-      <tbody>
-        <tr>
-          <td><span class="rank rank-1">1</span></td>
-          <td>NovaStrike</td>
-          <td>Nebula Runner</td>
-          <td>98,430</td>
-        </tr>
-        <tr>
-          <td><span class="rank rank-2">2</span></td>
-          <td>ByteBender</td>
-          <td>Puzzle Forge</td>
-          <td>91,110</td>
-        </tr>
-        <tr>
-          <td><span class="rank rank-3">3</span></td>
-          <td>ShadowVex</td>
-          <td>Castle Siege</td>
-          <td>87,905</td>
-        </tr>
-        <tr>
-          <td><span class="rank">4</span></td>
-          <td>PixelPhoenix</td>
-          <td>Pixel Sprint</td>
-          <td>82,340</td>
-        </tr>
-        <tr>
-          <td><span class="rank">5</span></td>
-          <td>QuantumJinx</td>
-          <td>Nebula Runner</td>
-          <td>79,215</td>
-        </tr>
+      <tbody id="leaderboardBody">
+        <tr><td colspan="4" class="loading-note">Loading leaderboard…</td></tr>
       </tbody>
     </table>
   </div>
@@ -295,5 +232,6 @@
   </div>
 </footer>
 
+<script src="site.js"></script>
 </body>
 </html>

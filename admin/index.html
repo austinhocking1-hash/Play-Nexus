@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Play Nexus</title>
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+
+<div class="demo-banner">
+  This admin panel is backed by a real Flask + SQLite server (see <code>server/</code>). It only manages the data on whatever server you're currently running — run it locally or deploy it yourself; nothing here talks to a live letsplaynexus.com.
+</div>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="logo">Play<span>Nexus</span></div>
+    <p class="sub">Admin Panel</p>
+    <input type="text" id="userInput" placeholder="Username or email">
+    <input type="password" id="passInput" placeholder="Password">
+    <button class="btn" style="width:100%; justify-content:center;" id="loginBtn">Sign In</button>
+    <p class="hint" id="loginError" style="color:#ff5c5c; display:none;"></p>
+    <p class="hint">Sign in with the admin account you configured in <code>server/.env</code> (ADMIN_USERNAME / ADMIN_PASSWORD).</p>
+  </div>
+</div>
+
+<div id="adminLayout" class="admin-layout" style="display:none;">
+  <aside class="sidebar">
+    <div class="logo">Play<span>Nexus</span></div>
+    <div class="tag">Admin Panel</div>
+    <div class="status-pill" id="statusPill"><span class="status-dot"></span><span id="statusText">CHECKING...</span></div>
+
+    <button class="nav-item active" data-panel="dashboard">🏠 Dashboard</button>
+    <button class="nav-item" data-panel="games">🎮 Games</button>
+    <button class="nav-item" data-panel="shop">🪙 NexBucks Shop</button>
+    <button class="nav-item" data-panel="challenges">🏆 Challenges</button>
+    <button class="nav-item" data-panel="leaderboard">📊 Leaderboard</button>
+
+    <div class="sidebar-footer">
+      <button class="logout-btn" id="logoutBtn">Log Out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- Dashboard -->
+    <section class="panel active" id="panel-dashboard">
+      <div class="main-header">
+        <div>
+          <h1>🏠 Dashboard</h1>
+          <p>Live overview of the data in server/playnexus.db.</p>
+        </div>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card"><div class="icon">🎮</div><div class="value" id="statGames">0</div><div class="label">Games Listed</div></div>
+        <div class="stat-card"><div class="icon">🪙</div><div class="value" id="statShop">0</div><div class="label">Shop Items</div></div>
+        <div class="stat-card"><div class="icon">🏆</div><div class="value" id="statChallenges">0</div><div class="label">Active Challenges</div></div>
+        <div class="stat-card"><div class="icon">👥</div><div class="value" id="statPlayers">0</div><div class="label">Registered Players</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Action</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr><td>Live data</td><td>Changes made here write directly to the database and are visible immediately on the public site.</td></tr>
+            <tr><td>Tip</td><td>Use the Games, Shop, Challenges, and Leaderboard tabs to manage what players see.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Games -->
+    <section class="panel" id="panel-games">
+      <div class="main-header">
+        <div>
+          <h1>🎮 Games</h1>
+          <p>Manage the games shown on the homepage.</p>
+        </div>
+      </div>
+      <div class="panel-toolbar">
+        <span></span>
+        <button class="btn" id="addGameBtn">+ Add Game</button>
+      </div>
+      <div class="form-card" id="gameForm">
+        <div class="form-grid">
+          <label>Title <input type="text" id="gameTitle" placeholder="Nebula Runner"></label>
+          <label>Genre <input type="text" id="gameGenre" placeholder="Arcade"></label>
+          <label>Status
+            <select id="gameStatus">
+              <option>Live</option>
+              <option>In Review</option>
+              <option>Draft</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" id="saveGameBtn">Save Game</button>
+          <button class="btn-secondary" id="cancelGameBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Title</th><th>Genre</th><th>Status</th><th></th></tr></thead>
+          <tbody id="gamesTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Shop -->
+    <section class="panel" id="panel-shop">
+      <div class="main-header">
+        <div>
+          <h1>🪙 NexBucks Shop</h1>
+          <p>Manage items redeemable with NexBucks.</p>
+        </div>
+      </div>
+      <div class="panel-toolbar">
+        <span></span>
+        <button class="btn" id="addShopBtn">+ Add Item</button>
+      </div>
+      <div class="form-card" id="shopForm">
+        <div class="form-grid">
+          <label>Name <input type="text" id="shopName" placeholder="Nova Ranger Skin"></label>
+          <label>Category
+            <select id="shopCategory">
+              <option>Skin</option>
+              <option>Boost</option>
+              <option>Badge</option>
+              <option>Theme</option>
+            </select>
+          </label>
+          <label>Price (NexBucks) <input type="number" id="shopPrice" placeholder="800"></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" id="saveShopBtn">Save Item</button>
+          <button class="btn-secondary" id="cancelShopBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Category</th><th>Price</th><th></th></tr></thead>
+          <tbody id="shopTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Challenges -->
+    <section class="panel" id="panel-challenges">
+      <div class="main-header">
+        <div>
+          <h1>🏆 Challenges</h1>
+          <p>Manage active player challenges.</p>
+        </div>
+      </div>
+      <div class="panel-toolbar">
+        <span></span>
+        <button class="btn" id="addChallengeBtn">+ Add Challenge</button>
+      </div>
+      <div class="form-card" id="challengeForm">
+        <div class="form-grid">
+          <label>Name <input type="text" id="challengeName" placeholder="Asteroid Gauntlet"></label>
+          <label>Type
+            <select id="challengeType">
+              <option>Daily</option>
+              <option>Weekly</option>
+              <option>Event</option>
+            </select>
+          </label>
+          <label>Reward <input type="text" id="challengeReward" placeholder="+150 XP"></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" id="saveChallengeBtn">Save Challenge</button>
+          <button class="btn-secondary" id="cancelChallengeBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Reward</th><th></th></tr></thead>
+          <tbody id="challengesTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section class="panel" id="panel-leaderboard">
+      <div class="main-header">
+        <div>
+          <h1>📊 Leaderboard</h1>
+          <p>Manage the global leaderboard entries.</p>
+        </div>
+      </div>
+      <div class="panel-toolbar">
+        <span></span>
+        <button class="btn" id="addScoreBtn">+ Add Entry</button>
+      </div>
+      <div class="form-card" id="scoreForm">
+        <div class="form-grid">
+          <label>Player <input type="text" id="scorePlayer" placeholder="NovaStrike"></label>
+          <label>Game <input type="text" id="scoreGame" placeholder="Nebula Runner"></label>
+          <label>Score <input type="number" id="scoreValue" placeholder="98430"></label>
+        </div>
+        <div class="form-actions">
+          <button class="btn" id="saveScoreBtn">Save Entry</button>
+          <button class="btn-secondary" id="cancelScoreBtn">Cancel</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rank</th><th>Player</th><th>Game</th><th>Score</th><th></th></tr></thead>
+          <tbody id="leaderboardTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/admin/admin.js"></script>
+</body>
+</html>

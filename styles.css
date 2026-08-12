@@ -599,6 +599,146 @@ h2 {
   color: var(--text);
 }
 
+/* Account nav + auth panel */
+.nav-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-balance {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffd15c;
+  white-space: nowrap;
+}
+
+.account-name {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.loading-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.error-note {
+  color: #ff8080;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 20px;
+}
+
+.auth-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(10, 11, 22, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-panel.hidden {
+  display: none;
+}
+
+.auth-panel-inner {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.auth-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.auth-close:hover {
+  color: var(--text);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #fff;
+  border-color: transparent;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.auth-form input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.auth-form button {
+  width: 100%;
+  justify-content: center;
+}
+
+.auth-error {
+  color: #ff8080;
+  font-size: 0.82rem;
+  margin: -6px 0 12px;
+  min-height: 1em;
+}
+
+.auth-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.auth-form.hidden {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 720px) {
   .nav ul {
