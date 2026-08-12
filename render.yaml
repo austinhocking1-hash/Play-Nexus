@@ -16,6 +16,8 @@ services:
         sync: false
       - key: FLASK_ENV
         value: production
+      - key: ALLOWED_ORIGIN
+        value: https://letsplaynexus.netlify.app
     disk:
       name: play-nexus-data
       mountPath: /opt/render/project/src/server

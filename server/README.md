@@ -46,6 +46,27 @@ gitignored — it's local state, not something to commit.
 - Admin-only routes check the signed-in user's role server-side, not just
   in the UI.
 
+## Split hosting: Netlify (frontend) + Render (backend)
+
+If the static site (`index.html`, `admin/`, `games/`) is deployed on Netlify
+separately from this backend, the two are on different domains, so:
+
+- The frontend needs to know the backend's URL. Edit `config.js` at the repo
+  root and set `window.PLAY_NEXUS_API_BASE` to your Render backend's URL
+  (e.g. `'https://play-nexus.onrender.com'`), then redeploy the Netlify site.
+- The backend needs to allow that origin and use cross-site cookies. Set
+  `ALLOWED_ORIGIN` in the backend's env (already defaulted to
+  `https://letsplaynexus.netlify.app` in `render.yaml`) to your Netlify
+  URL. This flips the session cookie to `SameSite=None; Secure`, which
+  **requires HTTPS on both sides** — Netlify and Render both give you that
+  by default, so no extra setup needed there.
+- If your Netlify URL ever changes, update `ALLOWED_ORIGIN` on Render to
+  match, or cross-origin requests (login, signup, admin panel) will fail.
+
+If instead frontend and backend are deployed together as one Render service
+(the simpler option), leave `config.js` as `''` and don't set `ALLOWED_ORIGIN`
+— everything runs same-origin and none of this is needed.
+
 ## Deploying to Render
 
 The repo includes `render.yaml` at the root, so Render can mostly configure

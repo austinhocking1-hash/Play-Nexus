@@ -2,7 +2,7 @@
 // Auth is a real session cookie; games/shop/challenges/leaderboard are
 // read from and written to server/playnexus.db via server/app.py.
 
-const API = '';
+const API = window.PLAY_NEXUS_API_BASE || '';
 
 async function api(path, options = {}) {
   const res = await fetch(API + path, {

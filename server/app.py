@@ -21,13 +21,36 @@ if not app.secret_key:
         'fill in real values, and load it (see server/README.md).'
     )
 
+# Set when the frontend is hosted on a different domain than this API
+# (e.g. frontend on Netlify, backend on Render). Cross-site cookies require
+# SameSite=None + Secure, so both only turn on when this is configured.
+ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN')
+CROSS_ORIGIN = bool(ALLOWED_ORIGIN)
+
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',
-    SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV') == 'production',
+    SESSION_COOKIE_SAMESITE='None' if CROSS_ORIGIN else 'Lax',
+    SESSION_COOKIE_SECURE=CROSS_ORIGIN or os.environ.get('FLASK_ENV') == 'production',
 )
 
 app.teardown_appcontext(close_db)
+
+
+@app.before_request
+def handle_preflight():
+    if request.method == 'OPTIONS':
+        return '', 204
+
+
+@app.after_request
+def add_cors_headers(response):
+    if ALLOWED_ORIGIN:
+        response.headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGIN
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Vary'] = 'Origin'
+    return response
 
 
 # ---------- helpers ----------

@@ -2,8 +2,10 @@
 // Games/shop/leaderboard are loaded live from server/playnexus.db, and
 // signing in/up creates a real account with a real NexBucks balance.
 
+const API_BASE = window.PLAY_NEXUS_API_BASE || '';
+
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(API_BASE + path, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...options,
