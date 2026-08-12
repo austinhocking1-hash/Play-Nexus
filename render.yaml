@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: play-nexus
+    runtime: python
+    plan: free
+    buildCommand: pip install -r server/requirements.txt
+    startCommand: cd server && gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: FLASK_ENV
+        value: production
+    disk:
+      name: play-nexus-data
+      mountPath: /opt/render/project/src/server
+      sizeGB: 1

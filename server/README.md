@@ -46,14 +46,41 @@ gitignored — it's local state, not something to commit.
 - Admin-only routes check the signed-in user's role server-side, not just
   in the UI.
 
+## Deploying to Render
+
+The repo includes `render.yaml` at the root, so Render can mostly configure
+itself. Steps only you can do (they need your own Render account):
+
+1. Go to [render.com](https://render.com) and sign up / log in (e.g. with
+   your GitHub account).
+2. **New +** → **Blueprint** → connect the `Play-Nexus` GitHub repo. Render
+   will read `render.yaml` and propose a `play-nexus` web service.
+3. Before the first deploy, set the secret env vars it asks for (these are
+   marked `sync: false` in `render.yaml` so Render prompts for them instead
+   of storing them in the repo):
+   - `ADMIN_USERNAME`
+   - `ADMIN_PASSWORD`
+   - `ADMIN_EMAIL` (optional)
+
+   `SECRET_KEY` is generated for you automatically.
+4. Deploy. Render builds with `pip install -r server/requirements.txt` and
+   runs `gunicorn app:app` from `server/`. Once it's up, your admin panel
+   is at `https://<your-service-name>.onrender.com/admin`.
+
+**Free tier caveat**: Render's free plan doesn't include the persistent
+disk declared in `render.yaml` (that needs a paid plan) — on the free tier,
+`playnexus.db` gets wiped on every redeploy/restart, so games/shop/leaderboard
+edits and player accounts won't survive. For anything real, either upgrade
+to a plan with a persistent disk, or migrate to a managed database (e.g.
+Render's managed Postgres) instead of SQLite.
+
 ## What's still missing for a production deploy
 
-- **Hosting**: this only runs where you start it (your machine, right now).
-  To make it reachable at a real domain you'd deploy it to a platform that
-  runs Python servers (Render, Railway, Fly.io, a VPS, etc.) — GitHub Pages
-  can't run this, it only serves static files.
+- **Persistent storage**: see the free-tier caveat above — SQLite on
+  ephemeral disk will lose data on every restart.
 - **HTTPS**: `SESSION_COOKIE_SECURE` is only enabled when `FLASK_ENV=production`
-  and you're behind real TLS. Don't run this in production over plain HTTP.
+  and you're behind real TLS. Render provides HTTPS automatically; if you
+  deploy elsewhere, make sure TLS is in front of the app.
 - **Rate limiting / brute-force protection** on login and signup.
 - **Email verification** for signups.
 - **Backups** for `playnexus.db` (or migrating to a managed Postgres instance).
