@@ -469,18 +469,18 @@ def my_purchases():
 
 @app.get('/')
 def index():
-    return send_from_directory(ROOT_DIR, 'index.html')
+    return send_from_directory(ROOT_DIR, 'index.html', max_age=0)
 
 
 @app.get('/admin')
 @app.get('/admin/')
 def admin_index():
-    return send_from_directory(os.path.join(ROOT_DIR, 'admin'), 'index.html')
+    return send_from_directory(os.path.join(ROOT_DIR, 'admin'), 'index.html', max_age=0)
 
 
 @app.get('/<path:path>')
 def static_files(path):
-    return send_from_directory(ROOT_DIR, path)
+    return send_from_directory(ROOT_DIR, path, max_age=0)
 
 
 init_db(app)
