@@ -248,7 +248,7 @@ def regenerate_game(game_id):
         result['ok'] = True
         return jsonify(generation=result)
     except Exception as e:
-        return jsonify(generation={'ok': False, 'message': str(e)}), 500
+        return jsonify(generation={'ok': False, 'message': str(e)}, error=str(e)), 500
 
 
 def update_resource(resource, item_id):
