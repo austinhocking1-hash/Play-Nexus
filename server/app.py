@@ -325,6 +325,26 @@ def admin_stats():
     return jsonify(players=player_count)
 
 
+@app.get('/api/admin/debug-env-key')
+def debug_env_key():
+    """Temporary diagnostic: reveals non-sensitive facts about
+    ANTHROPIC_API_KEY (length, positions of any non-ASCII bytes, a few
+    chars from each end) without exposing the full secret. Remove once
+    the encoding issue is resolved."""
+    _, err = require_admin()
+    if err:
+        return err
+    k = os.environ.get('ANTHROPIC_API_KEY') or ''
+    bad = [{'pos': i, 'hex': hex(ord(c)), 'repr': repr(c)} for i, c in enumerate(k) if ord(c) > 127]
+    return jsonify(
+        length=len(k),
+        non_ascii_count=len(bad),
+        non_ascii_samples=bad[:20],
+        first_10=repr(k[:10]),
+        last_10=repr(k[-10:]),
+    )
+
+
 @app.get('/api/leaderboard')
 def leaderboard_list():
     db = get_db()
