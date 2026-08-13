@@ -93,7 +93,7 @@ def generate_game_html(title, genre):
 def write_game_file(slug, html):
     os.makedirs(GAMES_DIR, exist_ok=True)
     path = os.path.join(GAMES_DIR, f'{slug}.html')
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         f.write(html)
     return path
 
@@ -116,7 +116,10 @@ def commit_and_push(slug, title):
     rel_path = f'games/{slug}.html'
 
     def run(args):
-        return subprocess.run(args, cwd=ROOT_DIR, capture_output=True, text=True, timeout=30)
+        return subprocess.run(
+            args, cwd=ROOT_DIR, capture_output=True, timeout=30,
+            encoding='utf-8', errors='replace',
+        )
 
     add = run(['git', 'add', rel_path])
     if add.returncode != 0:
