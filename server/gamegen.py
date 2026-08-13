@@ -61,6 +61,17 @@ def generate_game_html(title, genre):
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
         raise RuntimeError('ANTHROPIC_API_KEY is not set on the server.')
+    api_key = api_key.strip()
+    try:
+        api_key.encode('ascii')
+    except UnicodeEncodeError:
+        raise RuntimeError(
+            'ANTHROPIC_API_KEY contains a non-ASCII character (likely a '
+            'copy-paste artifact like a smart quote or hidden formatting '
+            'character). Re-copy the key directly from the Anthropic '
+            'console using its copy button and re-paste it into the '
+            'Render environment variable.'
+        )
 
     prompt = PROMPT_TEMPLATE.format(title=title, genre=genre or 'Arcade')
     resp = requests.post(
