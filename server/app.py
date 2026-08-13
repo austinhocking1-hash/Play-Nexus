@@ -1,5 +1,6 @@
 import os
 import re
+import traceback
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, session, send_from_directory
@@ -229,7 +230,9 @@ def create_resource(resource):
             generation = gamegen.generate_and_publish(item['title'], item['genre'], item['slug'])
             generation['ok'] = True
         except Exception as e:
-            generation = {'ok': False, 'message': str(e)}
+            tb = traceback.format_exc()
+            app.logger.error('Game generation failed:\n%s', tb)
+            generation = {'ok': False, 'message': str(e), 'traceback': tb}
 
     return jsonify(item=item, generation=generation), 201
 
@@ -248,7 +251,9 @@ def regenerate_game(game_id):
         result['ok'] = True
         return jsonify(generation=result)
     except Exception as e:
-        return jsonify(generation={'ok': False, 'message': str(e)}, error=str(e)), 500
+        tb = traceback.format_exc()
+        app.logger.error('Game regeneration failed:\n%s', tb)
+        return jsonify(generation={'ok': False, 'message': str(e), 'traceback': tb}, error=str(e)), 500
 
 
 def update_resource(resource, item_id):

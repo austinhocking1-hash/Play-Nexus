@@ -12,7 +12,9 @@ async function api(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    const err = new Error(data.error || `Request failed (${res.status})`);
+    err.data = data;
+    throw err;
   }
   return data;
 }
@@ -197,6 +199,14 @@ function showGenStatus(html, kind) {
   el.innerHTML = `<div class="gen-status ${kind}">${html}</div>`;
 }
 
+function genErrorHtml(message, traceback) {
+  let html = `⚠️ Generation failed: ${escapeHtml(message)}`;
+  if (traceback) {
+    html += `<details style="margin-top:8px;"><summary style="cursor:pointer;">Show technical details</summary><pre style="white-space:pre-wrap; font-size:0.75rem; margin-top:8px;">${escapeHtml(traceback)}</pre></details>`;
+  }
+  return html;
+}
+
 function setupGames() {
   const rerender = setupCrud({
     resource: 'games',
@@ -233,7 +243,7 @@ function setupGames() {
           'ok'
         );
       } else {
-        showGenStatus(`⚠️ Game was created, but AI generation failed: ${escapeHtml(gen.message)}`, 'error');
+        showGenStatus(genErrorHtml(gen.message, gen.traceback), 'error');
       }
     },
   });
@@ -254,10 +264,11 @@ function setupGames() {
           'ok'
         );
       } else {
-        showGenStatus(`⚠️ Generation failed: ${escapeHtml(generation.message)}`, 'error');
+        showGenStatus(genErrorHtml(generation.message, generation.traceback), 'error');
       }
     } catch (err) {
-      showGenStatus(`⚠️ Generation failed: ${escapeHtml(err.message)}`, 'error');
+      const gen = err.data && err.data.generation;
+      showGenStatus(genErrorHtml(err.message, gen && gen.traceback), 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = '🤖 Regenerate';
