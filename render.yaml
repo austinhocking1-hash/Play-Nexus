@@ -1,7 +1,7 @@
 services:
   - type: web
     name: play-nexus
-    runtime: python
+    env: python
     plan: free
     buildCommand: pip install -r server/requirements.txt
     startCommand: cd server && gunicorn app:app --bind 0.0.0.0:$PORT
@@ -18,7 +18,8 @@ services:
         value: production
       - key: ALLOWED_ORIGIN
         value: https://letsplaynexus.netlify.app
-    disk:
-      name: play-nexus-data
-      mountPath: /opt/render/project/src/server
-      sizeGB: 1
+    # Note: persistent disks aren't available on the free plan, so
+    # server/playnexus.db will reset on every restart/redeploy here.
+    # Upgrade the service's plan in the Render dashboard and add a disk
+    # (mount path: /opt/render/project/src/server) if you need data to
+    # actually persist.

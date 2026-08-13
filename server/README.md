@@ -88,12 +88,14 @@ itself. Steps only you can do (they need your own Render account):
    runs `gunicorn app:app` from `server/`. Once it's up, your admin panel
    is at `https://<your-service-name>.onrender.com/admin`.
 
-**Free tier caveat**: Render's free plan doesn't include the persistent
-disk declared in `render.yaml` (that needs a paid plan) — on the free tier,
-`playnexus.db` gets wiped on every redeploy/restart, so games/shop/leaderboard
-edits and player accounts won't survive. For anything real, either upgrade
-to a plan with a persistent disk, or migrate to a managed database (e.g.
-Render's managed Postgres) instead of SQLite.
+**Free tier caveat**: `render.yaml` doesn't declare a persistent disk (Render's
+free plan doesn't support them at all — including one would fail Blueprint
+validation). That means `playnexus.db` gets wiped on every redeploy/restart,
+so games/shop/leaderboard edits and player accounts won't survive. For
+anything real, either upgrade the service to a paid plan and attach a disk
+yourself in the Render dashboard (mount path `/opt/render/project/src/server`),
+or migrate to a managed database (e.g. Render's managed Postgres) instead of
+SQLite.
 
 ## What's still missing for a production deploy
 
