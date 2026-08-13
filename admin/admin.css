@@ -328,6 +328,39 @@ tbody tr:hover {
   margin-bottom: 16px;
 }
 
+.section-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.gen-status {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.gen-status.pending {
+  background: #fff4e0;
+  color: #7a4a00;
+}
+
+.gen-status.ok {
+  background: var(--online-bg);
+  color: var(--online);
+}
+
+.gen-status.error {
+  background: #fde8ea;
+  color: var(--danger);
+}
+
+.gen-status a {
+  text-decoration: underline;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

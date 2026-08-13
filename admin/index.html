@@ -75,6 +75,7 @@
           <p>Manage the games shown on the homepage.</p>
         </div>
       </div>
+      <p class="section-hint">Adding a game sends the title + genre to Claude to generate a real playable HTML game, then commits and pushes it to GitHub automatically.</p>
       <div class="panel-toolbar">
         <span></span>
         <button class="btn" id="addGameBtn">+ Add Game</button>
@@ -96,6 +97,7 @@
           <button class="btn-secondary" id="cancelGameBtn">Cancel</button>
         </div>
       </div>
+      <div id="gameGenStatus"></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Title</th><th>Genre</th><th>Status</th><th></th></tr></thead>

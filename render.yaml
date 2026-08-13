@@ -18,6 +18,12 @@ services:
         value: production
       - key: ALLOWED_ORIGIN
         value: https://letsplaynexus.netlify.app
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: austinhocking1-hash/Play-Nexus
     # Note: persistent disks aren't available on the free plan, so
     # server/playnexus.db will reset on every restart/redeploy here.
     # Upgrade the service's plan in the Render dashboard and add a disk

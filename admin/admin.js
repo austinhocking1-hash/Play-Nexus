@@ -117,7 +117,7 @@ function clearFormError(form) {
 }
 
 // ---------- Generic CRUD wiring for games / shop / challenges ----------
-function setupCrud({ resource, tableBodyId, formId, addBtnId, saveBtnId, cancelBtnId, fields, renderRow }) {
+function setupCrud({ resource, tableBodyId, formId, addBtnId, saveBtnId, cancelBtnId, fields, renderRow, onCreate }) {
   const tableBody = document.getElementById(tableBodyId);
   const form = document.getElementById(formId);
   const addBtn = document.getElementById(addBtnId);
@@ -175,10 +175,12 @@ function setupCrud({ resource, tableBodyId, formId, addBtnId, saveBtnId, cancelB
     try {
       if (editingId) {
         await api(`/api/${resource}/${editingId}`, { method: 'PUT', body: JSON.stringify(values) });
+        closeForm();
       } else {
-        await api(`/api/${resource}`, { method: 'POST', body: JSON.stringify(values) });
+        const res = await api(`/api/${resource}`, { method: 'POST', body: JSON.stringify(values) });
+        closeForm();
+        if (onCreate) onCreate(res);
       }
-      closeForm();
       await render();
       updateStats();
     } catch (e) {
@@ -190,8 +192,13 @@ function setupCrud({ resource, tableBodyId, formId, addBtnId, saveBtnId, cancelB
   return render;
 }
 
+function showGenStatus(html, kind) {
+  const el = document.getElementById('gameGenStatus');
+  el.innerHTML = `<div class="gen-status ${kind}">${html}</div>`;
+}
+
 function setupGames() {
-  return setupCrud({
+  const rerender = setupCrud({
     resource: 'games',
     tableBodyId: 'gamesTableBody',
     formId: 'gameForm',
@@ -209,11 +216,55 @@ function setupGames() {
         <td>${escapeHtml(g.genre)}</td>
         <td><span class="badge">${escapeHtml(g.status)}</span></td>
         <td class="row-actions">
+          <a class="icon-btn" href="/games/${encodeURIComponent(g.slug)}.html" target="_blank" rel="noopener">Play</a>
+          <button class="icon-btn" data-regen="${g.id}" data-slug="${escapeHtml(g.slug)}">🤖 Regenerate</button>
           <button class="icon-btn" data-edit="${g.id}">Edit</button>
           <button class="icon-btn danger" data-delete="${g.id}">Delete</button>
         </td>
       </tr>`,
+    onCreate: (res) => {
+      const gen = res.generation;
+      if (!gen) return;
+      if (gen.ok) {
+        showGenStatus(
+          `✅ AI generated <b>${escapeHtml(res.item.title)}</b> and pushed it to GitHub. ` +
+          `<a href="/games/${encodeURIComponent(res.item.slug)}.html" target="_blank" rel="noopener">Play it</a> ` +
+          `(may take a minute to go live if this triggers a redeploy).`,
+          'ok'
+        );
+      } else {
+        showGenStatus(`⚠️ Game was created, but AI generation failed: ${escapeHtml(gen.message)}`, 'error');
+      }
+    },
   });
+
+  document.getElementById('gamesTableBody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-regen]');
+    if (!btn) return;
+    const id = btn.dataset.regen;
+    const slug = btn.dataset.slug;
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    showGenStatus('🤖 Asking Claude to generate this game… this can take up to a minute.', 'pending');
+    try {
+      const { generation } = await api(`/api/games/${id}/generate`, { method: 'POST' });
+      if (generation.ok) {
+        showGenStatus(
+          `✅ Regenerated and pushed to GitHub. <a href="/games/${encodeURIComponent(slug)}.html" target="_blank" rel="noopener">Play it</a>`,
+          'ok'
+        );
+      } else {
+        showGenStatus(`⚠️ Generation failed: ${escapeHtml(generation.message)}`, 'error');
+      }
+    } catch (err) {
+      showGenStatus(`⚠️ Generation failed: ${escapeHtml(err.message)}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🤖 Regenerate';
+    }
+  });
+
+  return rerender;
 }
 
 function setupShop() {

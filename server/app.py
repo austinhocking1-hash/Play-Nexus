@@ -6,6 +6,7 @@ from flask import Flask, jsonify, request, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import get_db, close_db, init_db, now
+import gamegen
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -220,7 +221,34 @@ def create_resource(resource):
     )
     db.commit()
     row = db.execute(f"SELECT * FROM {cfg['table']} WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return jsonify(item=dict(row)), 201
+    item = dict(row)
+
+    generation = None
+    if resource == 'games':
+        try:
+            generation = gamegen.generate_and_publish(item['title'], item['genre'], item['slug'])
+            generation['ok'] = True
+        except Exception as e:
+            generation = {'ok': False, 'message': str(e)}
+
+    return jsonify(item=item, generation=generation), 201
+
+
+@app.post('/api/games/<int:game_id>/generate')
+def regenerate_game(game_id):
+    _, err = require_admin()
+    if err:
+        return err
+    db = get_db()
+    game = db.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
+    if not game:
+        return jsonify(error='Not found.'), 404
+    try:
+        result = gamegen.generate_and_publish(game['title'], game['genre'], game['slug'])
+        result['ok'] = True
+        return jsonify(generation=result)
+    except Exception as e:
+        return jsonify(generation={'ok': False, 'message': str(e)}), 500
 
 
 def update_resource(resource, item_id):
