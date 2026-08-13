@@ -159,11 +159,16 @@ def me():
 
 # ---------- generic resource CRUD (games, shop, challenges) ----------
 
+def slugify(text):
+    slug = re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
+    return slug or 'game'
+
+
 RESOURCE_CONFIG = {
     'games': {
         'table': 'games',
         'fields': ['title', 'genre', 'status', 'slug'],
-        'required': ['title', 'genre', 'slug'],
+        'required': ['title', 'genre'],
     },
     'shop': {
         'table': 'shop_items',
@@ -203,6 +208,8 @@ def create_resource(resource):
             return jsonify(error='"price" must be a number.'), 400
     if 'status' in cfg['fields'] and not values.get('status'):
         values['status'] = 'Live'
+    if 'slug' in cfg['fields'] and not str(values.get('slug') or '').strip():
+        values['slug'] = slugify(values.get('title') or '')
 
     db = get_db()
     cols = ', '.join(values.keys())
