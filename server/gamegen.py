@@ -117,9 +117,18 @@ def _sanitize(text, token):
 
 def commit_and_push(slug, title):
     token = os.environ.get('GITHUB_TOKEN')
-    repo = os.environ.get('GITHUB_REPO', 'austinhocking1-hash/Play-Nexus')
+    repo = (os.environ.get('GITHUB_REPO') or 'austinhocking1-hash/Play-Nexus').strip()
     if not token:
         raise RuntimeError('GITHUB_TOKEN is not set on the server.')
+    token = token.strip()
+    try:
+        token.encode('ascii')
+    except UnicodeEncodeError:
+        raise RuntimeError(
+            'GITHUB_TOKEN contains a non-ASCII character (likely a '
+            'copy-paste artifact). Delete and re-add it in the Render '
+            'environment variables.'
+        )
 
     if not os.path.isdir(os.path.join(ROOT_DIR, '.git')):
         raise RuntimeError('No .git directory found — cannot commit/push from this deployment.')
