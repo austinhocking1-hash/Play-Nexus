@@ -2,13 +2,14 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Space Race</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#0a0b16;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;}
   #back{position:absolute;top:10px;left:14px;color:#2fd0ff;text-decoration:none;font-size:14px;z-index:10;}
   #back:hover{color:#c026ff;}
   #wrap{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
-  canvas{background:linear-gradient(180deg,#0a0b16,#171933);display:block;box-shadow:0 0 40px rgba(47,208,255,0.15);}
+  canvas{background:linear-gradient(180deg,#0a0b16,#171933);display:block;box-shadow:0 0 40px rgba(47,208,255,0.15);max-width:100vw;max-height:100vh;height:auto;touch-action:none;}
   .overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(10,11,22,0.85);color:#fff;z-index:5;}
   .hidden{display:none;}
   h1{font-size:2.5em;margin:0 0 10px 0;background:linear-gradient(90deg,#2fd0ff,#c026ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -227,7 +228,7 @@ canvas.addEventListener('click', e=>{
   if(!running) return;
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  if(x < W/2) moveLeft(); else moveRight();
+  if(x < rect.width / 2) moveLeft(); else moveRight();
 });
 
 startBtn.addEventListener('click', ()=>{

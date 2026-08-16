@@ -69,11 +69,15 @@ a {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  max-width: 100%;
 }
 
 canvas {
   display: block;
   background: #0a0b16;
+  max-width: 100%;
+  height: auto;
+  touch-action: none;
 }
 
 .hud {
@@ -144,8 +148,9 @@ canvas {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  width: 360px;
-  height: 360px;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
   padding: 12px;
 }
 
@@ -170,4 +175,18 @@ canvas {
   background: transparent;
   cursor: default;
   box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 12px;
+  }
+  .puzzle-tile {
+    font-size: 1.1rem;
+  }
+  .hud {
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.8rem;
+  }
 }

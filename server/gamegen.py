@@ -41,7 +41,28 @@ Requirements:
 - Include a start screen with a "Start" button, and a game-over screen showing
   the score with a "Try Again" button, similar to a typical arcade game.
 - Keep it well-contained in one file under roughly 300 lines.
-- Output ONLY the raw HTML, nothing else.
+
+Mobile/touch support (required — this must be fully playable on a phone,
+not just desktop with a keyboard):
+- Include <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  in <head>.
+- Any <canvas> must be responsive: give it CSS like
+  "max-width: 100%; height: auto; touch-action: none;" so it scales down to
+  fit a narrow phone screen instead of overflowing or getting cut off.
+- Provide touch controls alongside keyboard controls — e.g. tap/drag/swipe
+  on the canvas for movement or action, not keyboard-only. A player with no
+  physical keyboard must be able to fully play and complete the game.
+- When translating a click/touch/pointer event's screen coordinates into
+  the game's internal coordinate space, scale by the canvas's actual
+  displayed size, e.g.:
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvasWidth / rect.width);
+    const y = (e.clientY - rect.top) * (canvasHeight / rect.height);
+  Never compare a raw event coordinate directly against the canvas's
+  internal pixel dimensions — it will be wrong once the canvas is scaled
+  by CSS on a smaller screen.
+
+Output ONLY the raw HTML, nothing else.
 """
 
 # Appended to every generated game so runtime JS errors get reported back
