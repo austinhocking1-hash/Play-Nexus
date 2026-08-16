@@ -1,12 +1,15 @@
 import os
 import re
+import threading
 import traceback
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, session, send_from_directory
+from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import get_db, close_db, init_db, now
+import autofix
 import gamegen
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -53,6 +56,35 @@ def add_cors_headers(response):
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
         response.headers['Vary'] = 'Origin'
     return response
+
+
+@app.errorhandler(Exception)
+def handle_unhandled_exception(e):
+    # Expected control-flow (404s, aborts, etc.) aren't "bugs" — let Flask
+    # handle those normally instead of trying to auto-fix them.
+    if isinstance(e, HTTPException):
+        return e
+
+    tb_text = traceback.format_exc()
+    app.logger.error('Unhandled exception on %s:\n%s', request.path, tb_text)
+
+    try:
+        frames = traceback.extract_tb(e.__traceback__)
+        our_frames = [
+            f for f in frames
+            if os.path.dirname(os.path.abspath(f.filename)) == os.path.dirname(os.path.abspath(__file__))
+        ]
+        if our_frames:
+            target_file = our_frames[-1].filename
+            threading.Thread(
+                target=autofix.fix_server_file,
+                args=(target_file, str(e), tb_text),
+                daemon=True,
+            ).start()
+    except Exception:
+        app.logger.exception('Failed to dispatch autofix for the exception above')
+
+    return jsonify(error='Internal server error'), 500
 
 
 # ---------- helpers ----------
@@ -254,6 +286,25 @@ def regenerate_game(game_id):
         tb = traceback.format_exc()
         app.logger.error('Game regeneration failed:\n%s', tb)
         return jsonify(generation={'ok': False, 'message': str(e), 'traceback': tb}, error=str(e)), 500
+
+
+@app.post('/api/games/<slug>/report-error')
+def report_game_error(slug):
+    """A game page calls this automatically when it hits a JS error. No
+    auth required — any player's browser can trigger it — but it's rate
+    limited per (game, error) via autofix's cooldown, and the actual fix
+    runs in the background so this always responds immediately."""
+    slug = re.sub(r'[^a-z0-9-]', '', (slug or '')[:60])
+    data = request.get_json(silent=True) or {}
+    message = str(data.get('message') or '')[:500]
+    stack = str(data.get('stack') or '')[:2000]
+    if slug and message:
+        threading.Thread(
+            target=autofix.fix_game_file,
+            args=(slug, message, stack),
+            daemon=True,
+        ).start()
+    return jsonify(ok=True)
 
 
 def update_resource(resource, item_id):

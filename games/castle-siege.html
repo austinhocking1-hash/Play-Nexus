@@ -198,5 +198,23 @@ canvas.addEventListener('click', e => {
 });
 </script>
 
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/castle-siege/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
 </body>
 </html>

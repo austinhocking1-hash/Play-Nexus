@@ -44,6 +44,28 @@ Requirements:
 - Output ONLY the raw HTML, nothing else.
 """
 
+# Appended to every generated game so runtime JS errors get reported back
+# to the server automatically (powers the auto-fix pipeline in autofix.py).
+ERROR_REPORTER_TEMPLATE = """
+<script>
+(function(){{
+  function report(message, stack){{
+    try {{
+      fetch('/api/games/{slug}/report-error', {{
+        method: 'POST',
+        headers: {{'Content-Type': 'application/json'}},
+        body: JSON.stringify({{message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)}})
+      }});
+    }} catch(e) {{}}
+  }}
+  window.addEventListener('error', function(e){{ report(e.message, e.error && e.error.stack); }});
+  window.addEventListener('unhandledrejection', function(e){{
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  }});
+}})();
+</script>
+"""
+
 
 def slugify(text):
     slug = re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
@@ -57,7 +79,14 @@ def strip_code_fences(text):
     return text.strip()
 
 
-def generate_game_html(title, genre):
+def inject_error_reporter(html, slug):
+    snippet = ERROR_REPORTER_TEMPLATE.format(slug=slug)
+    if '</body>' in html:
+        return html.replace('</body>', snippet + '</body>', 1)
+    return html + snippet
+
+
+def _get_api_key():
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
         raise RuntimeError('ANTHROPIC_API_KEY is not set on the server.')
@@ -72,8 +101,11 @@ def generate_game_html(title, genre):
             'console using its copy button and re-paste it into the '
             'Render environment variable.'
         )
+    return api_key
 
-    prompt = PROMPT_TEMPLATE.format(title=title, genre=genre or 'Arcade')
+
+def call_claude(system_prompt, user_prompt, max_tokens=8000):
+    api_key = _get_api_key()
     resp = requests.post(
         ANTHROPIC_API_URL,
         headers={
@@ -83,9 +115,9 @@ def generate_game_html(title, genre):
         },
         json={
             'model': MODEL,
-            'max_tokens': 8000,
-            'system': SYSTEM_PROMPT,
-            'messages': [{'role': 'user', 'content': prompt}],
+            'max_tokens': max_tokens,
+            'system': system_prompt,
+            'messages': [{'role': 'user', 'content': user_prompt}],
         },
         timeout=120,
     )
@@ -97,8 +129,12 @@ def generate_game_html(title, genre):
     text = ''.join(p.get('text', '') for p in parts if p.get('type') == 'text')
     if not text.strip():
         raise RuntimeError('Anthropic API returned an empty response.')
-
     return strip_code_fences(text)
+
+
+def generate_game_html(title, genre):
+    prompt = PROMPT_TEMPLATE.format(title=title, genre=genre or 'Arcade')
+    return call_claude(SYSTEM_PROMPT, prompt)
 
 
 def write_game_file(slug, html):
@@ -115,7 +151,7 @@ def _sanitize(text, token):
     return text
 
 
-def commit_and_push(slug, title):
+def _get_github_credentials():
     token = os.environ.get('GITHUB_TOKEN')
     repo = (os.environ.get('GITHUB_REPO') or 'austinhocking1-hash/Play-Nexus').strip()
     if not token:
@@ -129,25 +165,31 @@ def commit_and_push(slug, title):
             'copy-paste artifact). Delete and re-add it in the Render '
             'environment variables.'
         )
+    return token, repo
+
+
+def commit_and_push_files(rel_paths, commit_message):
+    """Generic: git add the given repo-relative paths, commit, and push to
+    main. Retries once with a rebase if the remote has moved (e.g. another
+    request pushed in the meantime)."""
+    token, repo = _get_github_credentials()
 
     if not os.path.isdir(os.path.join(ROOT_DIR, '.git')):
         raise RuntimeError('No .git directory found — cannot commit/push from this deployment.')
 
-    rel_path = f'games/{slug}.html'
-
-    def run(args):
+    def run(args, timeout=30):
         return subprocess.run(
-            args, cwd=ROOT_DIR, capture_output=True, timeout=30,
+            args, cwd=ROOT_DIR, capture_output=True, timeout=timeout,
             encoding='utf-8', errors='replace',
         )
 
-    add = run(['git', 'add', rel_path])
+    add = run(['git', 'add', *rel_paths])
     if add.returncode != 0:
         raise RuntimeError(f'git add failed: {_sanitize(add.stderr, token)}')
 
     commit = run([
         'git', '-c', 'user.email=bot@playnexus.local', '-c', 'user.name=Play Nexus Bot',
-        'commit', '-m', f'Add AI-generated game: {title}',
+        'commit', '-m', commit_message,
     ])
     if commit.returncode != 0:
         combined = commit.stdout + commit.stderr
@@ -158,7 +200,16 @@ def commit_and_push(slug, title):
     push_url = f'https://x-access-token:{token}@github.com/{repo}.git'
     push = run(['git', 'push', push_url, 'HEAD:main'])
     if push.returncode != 0:
-        raise RuntimeError(f'git push failed: {_sanitize(push.stderr, token)}')
+        combined = push.stdout + push.stderr
+        if 'non-fast-forward' in combined or 'fetch first' in combined or 'rejected' in combined:
+            pull = run(['git', 'pull', '--rebase', push_url, 'main'], timeout=60)
+            if pull.returncode != 0:
+                raise RuntimeError(f'git pull --rebase failed: {_sanitize(pull.stdout + pull.stderr, token)}')
+            retry = run(['git', 'push', push_url, 'HEAD:main'])
+            if retry.returncode != 0:
+                raise RuntimeError(f'git push failed after rebase retry: {_sanitize(retry.stderr, token)}')
+        else:
+            raise RuntimeError(f'git push failed: {_sanitize(push.stderr, token)}')
 
     return {'committed': True, 'pushed': True, 'message': 'Committed and pushed to main.'}
 
@@ -168,5 +219,6 @@ def generate_and_publish(title, genre, slug):
     Raises on failure — callers should catch and treat as non-fatal to the
     game record itself, which is created regardless."""
     html = generate_game_html(title, genre)
+    html = inject_error_reporter(html, slug)
     write_game_file(slug, html)
-    return commit_and_push(slug, title)
+    return commit_and_push_files([f'games/{slug}.html'], f'Add AI-generated game: {title}')
