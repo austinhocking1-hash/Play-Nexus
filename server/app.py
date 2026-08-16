@@ -325,39 +325,6 @@ def admin_stats():
     return jsonify(players=player_count)
 
 
-def _key_diagnostics(k):
-    k = k or ''
-    bad = [
-        {'pos': i, 'hex': hex(ord(c)), 'repr': repr(c)}
-        for i, c in enumerate(k)
-        if ord(c) > 127 or c in '\r\n\t\x00' or (ord(c) < 32)
-    ]
-    return {
-        'length': len(k),
-        'suspicious_char_count': len(bad),
-        'suspicious_chars': bad[:20],
-        'first_10': repr(k[:10]),
-        'last_10': repr(k[-10:]),
-        'has_leading_or_trailing_whitespace': k != k.strip(),
-    }
-
-
-@app.get('/api/admin/debug-env-key')
-def debug_env_key():
-    """Temporary diagnostic: reveals non-sensitive facts about
-    ANTHROPIC_API_KEY / GITHUB_TOKEN (length, positions of any
-    non-ASCII/control bytes, a few chars from each end) without
-    exposing the full secret. Remove once the encoding issue is
-    resolved."""
-    _, err = require_admin()
-    if err:
-        return err
-    return jsonify(
-        ANTHROPIC_API_KEY=_key_diagnostics(os.environ.get('ANTHROPIC_API_KEY')),
-        GITHUB_TOKEN=_key_diagnostics(os.environ.get('GITHUB_TOKEN')),
-    )
-
-
 @app.get('/api/leaderboard')
 def leaderboard_list():
     db = get_db()
