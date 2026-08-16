@@ -1,59 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <title>Space Race</title>
 <style>
-  html,body{margin:0;padding:0;background:#0a0b16;color:#e8e8ff;font-family:'Segoe UI',Arial,sans-serif;overflow:hidden;height:100%;}
-  a.back{position:absolute;top:10px;left:14px;color:#2fd0ff;text-decoration:none;font-size:14px;z-index:10;}
-  a.back:hover{text-decoration:underline;}
-  #wrap{position:relative;width:100%;height:100vh;display:flex;align-items:center;justify-content:center;}
-  canvas{background:radial-gradient(ellipse at center, #171933 0%, #0a0b16 100%);display:block;}
-  .overlay{
-    position:absolute;top:0;left:0;width:100%;height:100%;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    background:rgba(10,11,22,0.85);
-    text-align:center;
-  }
-  .title{
-    font-size:48px;font-weight:800;
-    background:linear-gradient(90deg,#2fd0ff,#c026ff);
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    margin-bottom:10px;letter-spacing:2px;
-  }
-  .sub{color:#aab;margin-bottom:30px;font-size:15px;}
-  button{
-    padding:14px 36px;font-size:18px;font-weight:700;border:none;border-radius:30px;
-    background:linear-gradient(90deg,#2fd0ff,#c026ff);color:#0a0b16;cursor:pointer;
-    box-shadow:0 0 20px rgba(47,208,255,0.4);transition:transform 0.15s;
-  }
-  button:hover{transform:scale(1.05);}
-  #score{
-    position:absolute;top:14px;right:20px;font-size:20px;font-weight:700;color:#2fd0ff;z-index:5;
-  }
-  #hud{
-    position:absolute;top:14px;left:50%;transform:translateX(-50%);font-size:14px;color:#aab;z-index:5;
-  }
-  .final{font-size:60px;font-weight:800;background:linear-gradient(90deg,#2fd0ff,#c026ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:20px;}
-  .hidden{display:none !important;}
+  html,body{margin:0;padding:0;height:100%;background:#0a0b16;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;}
+  #back{position:absolute;top:10px;left:14px;color:#2fd0ff;text-decoration:none;font-size:14px;z-index:10;}
+  #back:hover{color:#c026ff;}
+  #wrap{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+  canvas{background:linear-gradient(180deg,#0a0b16,#171933);display:block;box-shadow:0 0 40px rgba(47,208,255,0.15);}
+  .overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:rgba(10,11,22,0.85);color:#fff;z-index:5;}
+  .hidden{display:none;}
+  h1{font-size:2.5em;margin:0 0 10px 0;background:linear-gradient(90deg,#2fd0ff,#c026ff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p{color:#ccc;max-width:400px;line-height:1.4em;}
+  button{margin-top:20px;padding:12px 32px;font-size:1.1em;border:none;border-radius:30px;background:linear-gradient(90deg,#2fd0ff,#c026ff);color:#0a0b16;font-weight:bold;cursor:pointer;box-shadow:0 0 20px rgba(192,38,255,0.4);}
+  button:hover{filter:brightness(1.15);}
+  #score{position:absolute;top:10px;right:16px;color:#2fd0ff;font-size:20px;z-index:6;font-weight:bold;}
+  #finalScore{font-size:2em;background:linear-gradient(90deg,#2fd0ff,#c026ff);-webkit-background-clip:text;background-clip:text;color:transparent;margin:10px 0;}
 </style>
 </head>
 <body>
-<a class="back" href="../index.html">&larr; Back to Play Nexus</a>
+<a id="back" href="../index.html">&larr; Back to Play Nexus</a>
+<div id="score" class="hidden">Score: 0</div>
 <div id="wrap">
-  <canvas id="game" width="480" height="640"></canvas>
-  <div id="score" class="hidden">0</div>
-  <div id="hud" class="hidden">← → / A D / Touch drag to steer</div>
+  <canvas id="game" width="420" height="640"></canvas>
 
-  <div id="startScreen" class="overlay">
-    <div class="title">SPACE RACE</div>
-    <div class="sub">Dodge the asteroid field. Survive as long as you can.<br>Speed increases over time!</div>
+  <div class="overlay" id="startScreen">
+    <h1>SPACE RACE</h1>
+    <p>Pilot your ship through the asteroid field! Use arrow keys / A-D or touch to move left/right, and Up/Down or swipe to shift lanes speed. Avoid the rocks — survive as long as you can and rack up distance points!</p>
     <button id="startBtn">Start</button>
   </div>
 
-  <div id="overScreen" class="overlay hidden">
-    <div class="sub" style="margin-bottom:0;">SHIP DESTROYED</div>
-    <div class="final" id="finalScore">0</div>
+  <div class="overlay hidden" id="overScreen">
+    <h1>GAME OVER</h1>
+    <div id="finalScore">0</div>
+    <p>You crashed! Try to beat your score.</p>
     <button id="retryBtn">Try Again</button>
   </div>
 </div>
@@ -62,199 +43,204 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
-
 const startScreen = document.getElementById('startScreen');
 const overScreen = document.getElementById('overScreen');
-const scoreEl = document.getElementById('score');
-const hudEl = document.getElementById('hud');
-const finalScoreEl = document.getElementById('finalScore');
 const startBtn = document.getElementById('startBtn');
 const retryBtn = document.getElementById('retryBtn');
+const scoreEl = document.getElementById('score');
+const finalScoreEl = document.getElementById('finalScore');
 
-let ship, asteroids, stars, keys, score, gameSpeed, running, spawnTimer, animId;
+let lanes = 5;
+let laneWidth = W / lanes;
+let ship, rocks, stars, score, speed, running, keys, spawnTimer;
 
 function initGame(){
-  ship = { x: W/2, y: H-80, w: 28, h: 34, vx: 0 };
-  asteroids = [];
+  ship = { lane: 2, x: laneWidth*2 + laneWidth/2, y: H-90, w: 34, h: 50, targetX: 0 };
+  ship.targetX = ship.x;
+  rocks = [];
   stars = [];
-  for(let i=0;i<80;i++){
-    stars.push({x:Math.random()*W, y:Math.random()*H, s:Math.random()*2+0.5, sp:Math.random()*2+1});
+  for(let i=0;i<60;i++){
+    stars.push({x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.8+0.3, s: Math.random()*2+1});
   }
-  keys = {};
   score = 0;
-  gameSpeed = 3.2;
+  speed = 4;
   spawnTimer = 0;
   running = true;
+  scoreEl.classList.remove('hidden');
+  scoreEl.textContent = 'Score: 0';
 }
 
-function drawShip(x,y){
+function spawnRock(){
+  const lane = Math.floor(Math.random()*lanes);
+  const size = Math.random()*20+22;
+  rocks.push({ lane, x: laneWidth*lane + laneWidth/2, y: -40, r: size, rot: Math.random()*Math.PI, rotSpeed: (Math.random()-0.5)*0.1 });
+}
+
+function drawShip(){
   ctx.save();
-  ctx.translate(x,y);
-  let grad = ctx.createLinearGradient(0,-18,0,18);
+  ctx.translate(ship.x, ship.y);
+  let grad = ctx.createLinearGradient(-20,-25,20,25);
   grad.addColorStop(0,'#2fd0ff');
   grad.addColorStop(1,'#c026ff');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.moveTo(0,-18);
-  ctx.lineTo(12,16);
-  ctx.lineTo(0,10);
-  ctx.lineTo(-12,16);
+  ctx.moveTo(0,-25);
+  ctx.lineTo(17,20);
+  ctx.lineTo(0,12);
+  ctx.lineTo(-17,20);
   ctx.closePath();
   ctx.fill();
+  ctx.shadowColor = '#2fd0ff';
+  ctx.shadowBlur = 15;
+  ctx.fill();
+  ctx.shadowBlur = 0;
   // flame
-  ctx.fillStyle = 'rgba(47,208,255,0.6)';
   ctx.beginPath();
-  ctx.moveTo(-5,16);
-  ctx.lineTo(0, 26+Math.random()*8);
-  ctx.lineTo(5,16);
-  ctx.closePath();
+  ctx.moveTo(-6,20);
+  ctx.lineTo(0,20+10+Math.random()*8);
+  ctx.lineTo(6,20);
+  ctx.fillStyle = 'rgba(47,208,255,0.7)';
   ctx.fill();
   ctx.restore();
 }
 
-function drawAsteroid(a){
+function drawRock(r){
   ctx.save();
-  ctx.translate(a.x,a.y);
-  ctx.rotate(a.rot);
-  ctx.fillStyle = '#3a3d5c';
-  ctx.strokeStyle = '#7b7fa8';
-  ctx.lineWidth = 1.5;
+  ctx.translate(r.x, r.y);
+  ctx.rotate(r.rot);
   ctx.beginPath();
-  for(let i=0;i<a.points.length;i++){
-    const p = a.points[i];
-    if(i===0) ctx.moveTo(p.x*a.r, p.y*a.r);
-    else ctx.lineTo(p.x*a.r, p.y*a.r);
+  const pts = 8;
+  for(let i=0;i<pts;i++){
+    const ang = (Math.PI*2/pts)*i;
+    const rad = r.r * (0.8 + Math.sin(i*3.1)*0.15);
+    const px = Math.cos(ang)*rad;
+    const py = Math.sin(ang)*rad;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
   }
   ctx.closePath();
+  ctx.fillStyle = '#3a3d5c';
   ctx.fill();
+  ctx.strokeStyle = '#c026ff';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
 }
 
-function makeAsteroid(){
-  const r = 14 + Math.random()*26;
-  const points = [];
-  const n = 8;
-  for(let i=0;i<n;i++){
-    const ang = (i/n)*Math.PI*2;
-    const rad = 0.7 + Math.random()*0.4;
-    points.push({x:Math.cos(ang)*rad, y:Math.sin(ang)*rad});
-  }
-  return {
-    x: Math.random()*(W-60)+30,
-    y: -40,
-    r,
-    vy: gameSpeed*(0.7+Math.random()*0.8),
-    rot: Math.random()*Math.PI*2,
-    vr: (Math.random()-0.5)*0.05,
-    points
-  };
-}
-
 function update(){
   if(!running) return;
-  // stars
-  stars.forEach(s=>{
-    s.y += s.sp * (gameSpeed/3);
-    if(s.y>H){s.y=0; s.x=Math.random()*W;}
-  });
+  // move ship toward target
+  ship.x += (ship.targetX - ship.x) * 0.25;
 
-  // ship movement
-  const speed = 6.5;
-  if(keys['ArrowLeft']||keys['a']) ship.x -= speed;
-  if(keys['ArrowRight']||keys['d']) ship.x += speed;
-  ship.x = Math.max(20, Math.min(W-20, ship.x));
-
-  // spawn
-  spawnTimer--;
-  if(spawnTimer<=0){
-    asteroids.push(makeAsteroid());
-    spawnTimer = Math.max(18, 42 - gameSpeed*3);
+  spawnTimer++;
+  const spawnRate = Math.max(18, 40 - Math.floor(score/100));
+  if(spawnTimer > spawnRate){
+    spawnTimer = 0;
+    spawnRock();
   }
 
-  // update asteroids
-  for(let i=asteroids.length-1;i>=0;i--){
-    const a = asteroids[i];
-    a.y += a.vy;
-    a.rot += a.vr;
-    if(a.y - a.r > H){
-      asteroids.splice(i,1);
-      score += 10;
-      continue;
-    }
+  speed = 4 + score/300;
+
+  for(let i=rocks.length-1;i>=0;i--){
+    const r = rocks[i];
+    r.y += speed;
+    r.rot += r.rotSpeed;
+    if(r.y > H+50){ rocks.splice(i,1); score += 10; continue; }
     // collision
-    const dx = a.x - ship.x, dy = a.y - (ship.y-2);
+    const dx = r.x - ship.x;
+    const dy = r.y - ship.y;
     const dist = Math.sqrt(dx*dx+dy*dy);
-    if(dist < a.r*0.75 + 12){
-      gameOver();
-      return;
+    if(dist < r.r*0.8 + 16){
+      endGame();
     }
   }
 
-  gameSpeed += 0.0025;
-  score += 0.15;
-  scoreEl.textContent = Math.floor(score);
+  stars.forEach(s=>{ s.y += s.s; if(s.y>H) { s.y=0; s.x = Math.random()*W;} });
+
+  score += 1;
+  scoreEl.textContent = 'Score: ' + score;
 }
 
-function render(){
+function draw(){
   ctx.clearRect(0,0,W,H);
-  // stars
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#fff';
   stars.forEach(s=>{
-    ctx.globalAlpha = 0.5+Math.random()*0.4;
-    ctx.fillRect(s.x, s.y, s.s, s.s);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
   });
   ctx.globalAlpha = 1;
 
-  asteroids.forEach(drawAsteroid);
-  drawShip(ship.x, ship.y);
+  // lane dividers
+  ctx.strokeStyle = 'rgba(47,208,255,0.08)';
+  for(let i=1;i<lanes;i++){
+    ctx.beginPath();
+    ctx.moveTo(laneWidth*i, 0);
+    ctx.lineTo(laneWidth*i, H);
+    ctx.stroke();
+  }
+
+  rocks.forEach(drawRock);
+  drawShip();
 }
 
+let loopId;
 function loop(){
   update();
-  render();
-  if(running){
-    animId = requestAnimationFrame(loop);
-  }
+  draw();
+  if(running) loopId = requestAnimationFrame(loop);
 }
 
-function gameOver(){
+function endGame(){
   running = false;
-  cancelAnimationFrame(animId);
-  finalScoreEl.textContent = Math.floor(score);
-  overScreen.classList.remove('hidden');
   scoreEl.classList.add('hidden');
-  hudEl.classList.add('hidden');
+  finalScoreEl.textContent = score;
+  overScreen.classList.remove('hidden');
 }
 
-function startGame(){
+function moveLeft(){
+  if(ship.lane>0){ ship.lane--; ship.targetX = laneWidth*ship.lane + laneWidth/2; }
+}
+function moveRight(){
+  if(ship.lane<lanes-1){ ship.lane++; ship.targetX = laneWidth*ship.lane + laneWidth/2; }
+}
+
+document.addEventListener('keydown', e=>{
+  if(!running) return;
+  if(e.key==='ArrowLeft' || e.key==='a' || e.key==='A') moveLeft();
+  if(e.key==='ArrowRight' || e.key==='d' || e.key==='D') moveRight();
+});
+
+let touchStartX = null;
+canvas.addEventListener('touchstart', e=>{
+  touchStartX = e.touches[0].clientX;
+});
+canvas.addEventListener('touchend', e=>{
+  if(touchStartX===null) return;
+  const endX = e.changedTouches[0].clientX;
+  const diff = endX - touchStartX;
+  if(diff > 30) moveRight();
+  else if(diff < -30) moveLeft();
+  touchStartX = null;
+});
+canvas.addEventListener('click', e=>{
+  if(!running) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if(x < W/2) moveLeft(); else moveRight();
+});
+
+startBtn.addEventListener('click', ()=>{
   startScreen.classList.add('hidden');
-  overScreen.classList.add('hidden');
-  scoreEl.classList.remove('hidden');
-  hudEl.classList.remove('hidden');
   initGame();
   loop();
-}
+});
 
-startBtn.addEventListener('click', startGame);
-retryBtn.addEventListener('click', startGame);
-
-window.addEventListener('keydown', e=>{ keys[e.key]=true; });
-window.addEventListener('keyup', e=>{ keys[e.key]=false; });
-
-// touch/mouse drag control
-let dragging = false;
-function pointerX(e){
-  const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  return (clientX - rect.left) * (W/rect.width);
-}
-canvas.addEventListener('mousedown', e=>{ dragging=true; ship.x = pointerX(e); });
-canvas.addEventListener('mousemove', e=>{ if(dragging && running) ship.x = pointerX(e); });
-window.addEventListener('mouseup', ()=>{ dragging=false; });
-canvas.addEventListener('touchstart', e=>{ dragging=true; if(running) ship.x = pointerX(e); e.preventDefault(); }, {passive:false});
-canvas.addEventListener('touchmove', e=>{ if(dragging && running) ship.x = pointerX(e); e.preventDefault(); }, {passive:false});
-canvas.addEventListener('touchend', ()=>{ dragging=false; });
+retryBtn.addEventListener('click', ()=>{
+  overScreen.classList.add('hidden');
+  initGame();
+  loop();
+});
 </script>
 </body>
 </html>
