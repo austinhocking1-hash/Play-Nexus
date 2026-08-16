@@ -325,7 +325,6 @@ def admin_stats():
     return jsonify(players=player_count)
 
 
-@app.get('/api/admin/debug-env-key')
 def _key_diagnostics(k):
     k = k or ''
     bad = [
@@ -343,6 +342,7 @@ def _key_diagnostics(k):
     }
 
 
+@app.get('/api/admin/debug-env-key')
 def debug_env_key():
     """Temporary diagnostic: reveals non-sensitive facts about
     ANTHROPIC_API_KEY / GITHUB_TOKEN (length, positions of any
