@@ -93,6 +93,7 @@ function drawAsteroid(a) {
 }
 
 function update(dt) {
+  if (!ship) return;
   if (keys['ArrowLeft'] || keys['a'] || keys['A']) ship.x -= ship.speed;
   if (keys['ArrowRight'] || keys['d'] || keys['D']) ship.x += ship.speed;
   ship.x = Math.max(20, Math.min(W - 20, ship.x));
@@ -124,6 +125,7 @@ function update(dt) {
 }
 
 function draw() {
+  if (!ship) return;
   ctx.clearRect(0, 0, W, H);
   const grad = ctx.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, H);
   grad.addColorStop(0, '#171933');
@@ -188,5 +190,23 @@ canvas.addEventListener('pointermove', e => {
 });
 </script>
 
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/nebula-runner/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
 </body>
 </html>
