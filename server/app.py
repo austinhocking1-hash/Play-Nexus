@@ -258,13 +258,22 @@ def create_resource(resource):
 
     generation = None
     if resource == 'games':
-        try:
-            generation = gamegen.generate_and_publish(item['title'], item['genre'], item['slug'])
-            generation['ok'] = True
-        except Exception as e:
-            tb = traceback.format_exc()
-            app.logger.error('Game generation failed:\n%s', tb)
-            generation = {'ok': False, 'message': str(e), 'traceback': tb}
+        existing_file = os.path.join(gamegen.GAMES_DIR, f"{item['slug']}.html")
+        if os.path.exists(existing_file):
+            generation = {
+                'ok': True,
+                'committed': False,
+                'pushed': False,
+                'message': 'A file for this slug already exists (e.g. a hand-built game) — left it as-is instead of overwriting with an AI-generated version.',
+            }
+        else:
+            try:
+                generation = gamegen.generate_and_publish(item['title'], item['genre'], item['slug'])
+                generation['ok'] = True
+            except Exception as e:
+                tb = traceback.format_exc()
+                app.logger.error('Game generation failed:\n%s', tb)
+                generation = {'ok': False, 'message': str(e), 'traceback': tb}
 
     return jsonify(item=item, generation=generation), 201
 

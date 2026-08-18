@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penalty Shootout — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Penalty <span>Shootout</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="440"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Penalty Shootout</h2>
+    <p>Drag from the ball to aim, then let go to shoot. Beat the goalie — first to 5 goals wins!</p>
+    <button class="btn" id="startBtn">Start Shootout</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Goals: <b id="scoreEl">0</b> / 5</span>
+  <span>Shots: <b id="shotsEl">0</b></span>
+  <span>Saved: <b id="savedEl">0</b></span>
+</div>
+<p class="controls-hint">Drag from the ball to aim your shot, release to shoot</p>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const scoreEl = document.getElementById('scoreEl');
+const shotsEl = document.getElementById('shotsEl');
+const savedEl = document.getElementById('savedEl');
+
+const GOAL = { x1: 140, x2: 500, y: 70, height: 120 };
+const SPOT = { x: 320, y: 380 };
+const WIN_SCORE = 5;
+
+let score, shots, saved, running, ball, goalie, aiming, aimPoint, shooting, resultText, resultTimer;
+
+function resetShot() {
+  ball = { x: SPOT.x, y: SPOT.y, r: 12, moving: false, t: 0, from: null, to: null };
+  goalie = { x: (GOAL.x1 + GOAL.x2) / 2, y: GOAL.y + GOAL.height / 2, w: 46, h: 60, diving: false, targetX: (GOAL.x1 + GOAL.x2) / 2 };
+  aiming = false;
+  aimPoint = null;
+  shooting = false;
+}
+
+function resetGame() {
+  score = 0;
+  shots = 0;
+  saved = 0;
+  running = true;
+  resultText = null;
+  resultTimer = 0;
+  scoreEl.textContent = score;
+  shotsEl.textContent = shots;
+  savedEl.textContent = saved;
+  resetShot();
+}
+
+function pointerPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * (W / rect.width),
+    y: (clientY - rect.top) * (H / rect.height),
+  };
+}
+
+function startAim(e) {
+  if (!running || shooting) return;
+  const p = pointerPos(e);
+  const dx = p.x - ball.x, dy = p.y - ball.y;
+  if (Math.sqrt(dx * dx + dy * dy) < 60) {
+    aiming = true;
+    aimPoint = p;
+    e.preventDefault();
+  }
+}
+
+function moveAim(e) {
+  if (!aiming) return;
+  aimPoint = pointerPos(e);
+  e.preventDefault();
+}
+
+function endAim(e) {
+  if (!aiming) return;
+  aiming = false;
+  const p = aimPoint;
+  let targetX = Math.max(GOAL.x1 - 60, Math.min(GOAL.x2 + 60, p.x));
+  let targetY = Math.max(GOAL.y - 30, Math.min(SPOT.y - 40, p.y));
+  const dx = targetX - ball.x, dy = targetY - ball.y;
+  if (Math.sqrt(dx * dx + dy * dy) < 30) return; // ignore tiny taps
+
+  shoot(targetX, targetY);
+}
+
+function shoot(targetX, targetY) {
+  if (shooting) return;
+  shooting = true;
+  shots++;
+  shotsEl.textContent = shots;
+  ball.moving = true;
+  ball.t = 0;
+  ball.from = { x: ball.x, y: ball.y };
+  ball.to = { x: targetX, y: targetY };
+
+  const inGoalX = targetX >= GOAL.x1 && targetX <= GOAL.x2;
+  const inGoalY = targetY <= GOAL.y + GOAL.height && targetY >= GOAL.y - 10;
+  const willBeOnTarget = inGoalX && inGoalY;
+
+  const guessSkill = 0.55;
+  let diveX;
+  if (Math.random() < guessSkill && willBeOnTarget) {
+    diveX = targetX + (Math.random() - 0.5) * 30;
+  } else {
+    diveX = GOAL.x1 + Math.random() * (GOAL.x2 - GOAL.x1);
+  }
+  goalie.targetX = Math.max(GOAL.x1 + 20, Math.min(GOAL.x2 - 20, diveX));
+  goalie.diving = true;
+  const shotDiveX = goalie.targetX;
+  const shotTargetX = targetX;
+
+  setTimeout(() => {
+    const saveRadius = 55;
+    const dx = shotTargetX - shotDiveX;
+    const wasSaved = willBeOnTarget && Math.abs(dx) < saveRadius;
+
+    if (wasSaved) {
+      saved++;
+      savedEl.textContent = saved;
+      showResult('SAVED!', '#ff5c9e');
+    } else if (willBeOnTarget) {
+      score++;
+      scoreEl.textContent = score;
+      showResult('GOAL!', '#3fd1c5');
+    } else {
+      showResult('MISSED!', '#a7abc9');
+    }
+
+    shooting = false;
+
+    if (score >= WIN_SCORE) {
+      setTimeout(endGame, 700);
+    } else {
+      setTimeout(resetShot, 900);
+    }
+  }, 550);
+}
+
+function showResult(text, color) {
+  resultText = text;
+  resultColor = color;
+  resultTimer = 60;
+}
+let resultColor = '#fff';
+
+function update() {
+  if (ball.moving) {
+    ball.t += 1 / 33;
+    const progress = Math.min(1, ball.t);
+    ball.x = ball.from.x + (ball.to.x - ball.from.x) * progress;
+    ball.y = ball.from.y + (ball.to.y - ball.from.y) * progress;
+    if (progress >= 1) ball.moving = false;
+  }
+  if (goalie.diving) {
+    goalie.x += (goalie.targetX - goalie.x) * 0.25;
+  }
+  if (resultTimer > 0) resultTimer--;
+}
+
+function drawGoal() {
+  ctx.strokeStyle = '#e8eaf6';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(GOAL.x1, GOAL.y + GOAL.height);
+  ctx.lineTo(GOAL.x1, GOAL.y);
+  ctx.lineTo(GOAL.x2, GOAL.y);
+  ctx.lineTo(GOAL.x2, GOAL.y + GOAL.height);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(232,234,246,0.25)';
+  ctx.lineWidth = 1;
+  for (let x = GOAL.x1; x <= GOAL.x2; x += 20) {
+    ctx.beginPath();
+    ctx.moveTo(x, GOAL.y);
+    ctx.lineTo(x, GOAL.y + GOAL.height);
+    ctx.stroke();
+  }
+}
+
+function drawGoalie(g) {
+  ctx.save();
+  ctx.translate(g.x, g.y);
+  const grad = ctx.createLinearGradient(-g.w / 2, -g.h / 2, g.w / 2, g.h / 2);
+  grad.addColorStop(0, '#ffb84c');
+  grad.addColorStop(1, '#d97b1f');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(-g.w / 2, -g.h / 2, g.w, g.h, 10);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBall(b) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  const grad = ctx.createRadialGradient(-3, -3, 1, 0, 0, b.r);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(1, '#c7cbe0');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#0a0b16';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#1f3a2a');
+  grad.addColorStop(1, '#152318');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2;
+  for (let y = GOAL.y + GOAL.height + 20; y < H; y += 30) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  drawGoal();
+  drawGoalie(goalie);
+  drawBall(ball);
+
+  if (aiming && aimPoint) {
+    ctx.strokeStyle = 'rgba(47, 208, 255, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(aimPoint.x, aimPoint.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(47, 208, 255, 0.9)';
+    ctx.beginPath();
+    ctx.arc(aimPoint.x, aimPoint.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (resultTimer > 0 && resultText) {
+    ctx.globalAlpha = Math.min(1, resultTimer / 20);
+    ctx.fillStyle = resultColor;
+    ctx.font = 'bold 40px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(resultText, W / 2, H / 2);
+    ctx.globalAlpha = 1;
+  }
+}
+
+let animId;
+function loop() {
+  if (!running) return;
+  update();
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animId);
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>You Win! &#127942;</h2><p>You scored <b>${score}</b> goals in <b>${shots}</b> shots (${saved} saved).</p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Shoot Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  resetGame();
+  loop();
+}
+
+startBtn.addEventListener('click', start);
+canvas.addEventListener('pointerdown', startAim);
+canvas.addEventListener('pointermove', moveAim);
+window.addEventListener('pointerup', endAim);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/penalty-shootout/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+</body>
+</html>
