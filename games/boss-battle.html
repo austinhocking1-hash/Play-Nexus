@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boss Battle — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Boss <span>Battle</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="440"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Boss Battle</h2>
+    <p>Move with &larr; &rarr; / A-D or drag, and dodge the boss's attacks. Tap the boss to strike back. Bring its health to zero to win!</p>
+    <button class="btn" id="startBtn">Start Battle</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Boss HP: <b id="bossHpEl">100</b>%</span>
+  <span>Your HP: <b id="hpEl">5</b></span>
+  <span>Hits Landed: <b id="hitsEl">0</b></span>
+</div>
+<p class="controls-hint">Move: &larr; &rarr; / A-D / drag &middot; Attack: tap or click the boss</p>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const bossHpEl = document.getElementById('bossHpEl');
+const hpEl = document.getElementById('hpEl');
+const hitsEl = document.getElementById('hitsEl');
+
+const GROUND_Y = H - 60;
+const BOSS = { x: W / 2, y: 110, w: 130, h: 130, maxHp: 100 };
+const ATTACK_COOLDOWN = 300;
+const HIT_DAMAGE = [8, 9, 10, 11, 12];
+
+let running, player, boss, projectiles, beam, dragging;
+let lastAttackAt, hits, lastTime, animId;
+let keys = {};
+
+function resetGame() {
+  running = true;
+  hits = 0;
+  keys = {};
+  dragging = false;
+  lastAttackAt = 0;
+  lastTime = 0;
+
+  player = { x: W / 2, y: GROUND_Y, r: 16, hp: 5, maxHp: 5, invulnUntil: 0, speed: 5 };
+  boss = { hp: BOSS.maxHp, hitFlash: 0, meteorTimer: 0, beamTimer: 2500 };
+  projectiles = [];
+  beam = null;
+
+  hpEl.textContent = player.hp;
+  bossHpEl.textContent = 100;
+  hitsEl.textContent = hits;
+}
+
+function pointerPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * (W / rect.width),
+    y: (clientY - rect.top) * (H / rect.height),
+  };
+}
+
+function inBossHitbox(p) {
+  return p.x > BOSS.x - BOSS.w / 2 && p.x < BOSS.x + BOSS.w / 2 &&
+         p.y > BOSS.y - BOSS.h / 2 && p.y < BOSS.y + BOSS.h / 2;
+}
+
+function attackBoss() {
+  const now = performance.now();
+  if (now - lastAttackAt < ATTACK_COOLDOWN) return;
+  lastAttackAt = now;
+  const dmg = HIT_DAMAGE[Math.floor(Math.random() * HIT_DAMAGE.length)];
+  boss.hp = Math.max(0, boss.hp - dmg);
+  boss.hitFlash = 8;
+  hits++;
+  hitsEl.textContent = hits;
+  bossHpEl.textContent = Math.round((boss.hp / BOSS.maxHp) * 100);
+  if (boss.hp <= 0) win();
+}
+
+function onPointerDown(e) {
+  if (!running) return;
+  const p = pointerPos(e);
+  if (inBossHitbox(p)) {
+    attackBoss();
+  } else {
+    dragging = true;
+    player.x = Math.max(30, Math.min(W - 30, p.x));
+  }
+  e.preventDefault();
+}
+
+function onPointerMove(e) {
+  if (!running || !dragging) return;
+  const p = pointerPos(e);
+  player.x = Math.max(30, Math.min(W - 30, p.x));
+  e.preventDefault();
+}
+
+function onPointerUp() {
+  dragging = false;
+}
+
+function spawnMeteor() {
+  const x = 40 + Math.random() * (W - 80);
+  projectiles.push({ x, y: BOSS.y + 60, r: 14, speed: 3.2 + Math.random() * (1 + (100 - boss.hp) / 40) });
+}
+
+function startBeam() {
+  const gapWidth = 130;
+  const gapX = 40 + Math.random() * (W - 80 - gapWidth);
+  beam = { phase: 'warning', timer: 800, gapX, gapWidth };
+}
+
+function hitPlayer() {
+  const now = performance.now();
+  if (now < player.invulnUntil) return;
+  player.hp--;
+  hpEl.textContent = player.hp;
+  player.invulnUntil = now + 1000;
+  if (player.hp <= 0) lose();
+}
+
+function update(dt) {
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.x -= player.speed;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) player.x += player.speed;
+  player.x = Math.max(30, Math.min(W - 30, player.x));
+
+  if (boss.hitFlash > 0) boss.hitFlash--;
+
+  const aggression = 1 + (BOSS.maxHp - boss.hp) / BOSS.maxHp;
+  boss.meteorTimer += dt;
+  const meteorRate = Math.max(500, 1400 / aggression);
+  if (boss.meteorTimer > meteorRate) {
+    spawnMeteor();
+    boss.meteorTimer = 0;
+  }
+
+  boss.beamTimer += dt;
+  if (!beam && boss.beamTimer > 5500) {
+    startBeam();
+    boss.beamTimer = 0;
+  }
+
+  for (const p of projectiles) p.y += p.speed * (dt / 16);
+  for (const p of projectiles) {
+    const dx = p.x - player.x, dy = p.y - player.y;
+    if (Math.sqrt(dx * dx + dy * dy) < p.r + player.r) {
+      p.dead = true;
+      hitPlayer();
+    }
+  }
+  projectiles = projectiles.filter(p => !p.dead && p.y - p.r < H + 20);
+
+  if (beam) {
+    if (beam.phase === 'warning') {
+      beam.timer -= dt;
+      if (beam.timer <= 0) {
+        beam.phase = 'active';
+        beam.timer = 350;
+      }
+    } else if (beam.phase === 'active') {
+      beam.timer -= dt;
+      const inGap = player.x > beam.gapX && player.x < beam.gapX + beam.gapWidth;
+      if (!inGap) hitPlayer();
+      if (beam.timer <= 0) beam = null;
+    }
+  }
+}
+
+function drawPlayer() {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  const flashing = performance.now() < player.invulnUntil && Math.floor(performance.now() / 100) % 2 === 0;
+  ctx.globalAlpha = flashing ? 0.4 : 1;
+  const grad = ctx.createLinearGradient(-player.r, -player.r, player.r, player.r);
+  grad.addColorStop(0, '#2fd0ff');
+  grad.addColorStop(1, '#c026ff');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBoss() {
+  ctx.save();
+  ctx.translate(BOSS.x, BOSS.y);
+  const grad = ctx.createLinearGradient(-BOSS.w / 2, -BOSS.h / 2, BOSS.w / 2, BOSS.h / 2);
+  if (boss.hitFlash > 0) {
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(1, '#ffb84c');
+  } else {
+    grad.addColorStop(0, '#ff5c9e');
+    grad.addColorStop(1, '#7c1f4a');
+  }
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(-BOSS.w / 2, -BOSS.h / 2, BOSS.w, BOSS.h, 18);
+  ctx.fill();
+
+  ctx.fillStyle = '#0a0b16';
+  ctx.beginPath();
+  ctx.arc(-24, -10, 9, 0, Math.PI * 2);
+  ctx.arc(24, -10, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const barW = 220;
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(W / 2 - barW / 2, 20, barW, 12);
+  ctx.fillStyle = boss.hp / BOSS.maxHp > 0.3 ? '#3fd1c5' : '#ff5c5c';
+  ctx.fillRect(W / 2 - barW / 2, 20, barW * (boss.hp / BOSS.maxHp), 12);
+}
+
+function drawProjectiles() {
+  for (const p of projectiles) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    const grad = ctx.createRadialGradient(0, 0, 1, 0, 0, p.r);
+    grad.addColorStop(0, '#ffe08a');
+    grad.addColorStop(1, '#ff5c9e');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawBeam() {
+  if (!beam) return;
+  const y1 = BOSS.y + 70, y2 = H;
+  ctx.save();
+  if (beam.phase === 'warning') {
+    ctx.globalAlpha = 0.3 + 0.3 * Math.sin(performance.now() / 60);
+    ctx.fillStyle = '#ffb84c';
+    ctx.fillRect(0, y1, beam.gapX, y2 - y1);
+    ctx.fillRect(beam.gapX + beam.gapWidth, y1, W - (beam.gapX + beam.gapWidth), y2 - y1);
+  } else {
+    ctx.fillStyle = 'rgba(255, 92, 92, 0.55)';
+    ctx.fillRect(0, y1, beam.gapX, y2 - y1);
+    ctx.fillRect(beam.gapX + beam.gapWidth, y1, W - (beam.gapX + beam.gapWidth), y2 - y1);
+  }
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#241733');
+  grad.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  drawBeam();
+  drawBoss();
+  drawProjectiles();
+  drawPlayer();
+}
+
+function loop(t) {
+  if (!running) return;
+  const dt = lastTime ? Math.min(50, t - lastTime) : 16;
+  lastTime = t;
+  update(dt);
+  if (!running) return;
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+function win() {
+  running = false;
+  cancelAnimationFrame(animId);
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>Victory! &#127942;</h2><p>You defeated the boss in <b>${hits}</b> hits with <b>${player.hp}</b> HP to spare.</p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Fight Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function lose() {
+  running = false;
+  cancelAnimationFrame(animId);
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>Defeated...</h2><p>The boss got you down. You landed <b>${hits}</b> hits and brought it to <b>${Math.round((boss.hp / BOSS.maxHp) * 100)}%</b> HP.</p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Try Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  resetGame();
+  animId = requestAnimationFrame(loop);
+}
+
+startBtn.addEventListener('click', start);
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+window.addEventListener('pointerup', onPointerUp);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/boss-battle/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+</body>
+</html>
