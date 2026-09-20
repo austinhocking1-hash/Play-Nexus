@@ -1,5 +1,6 @@
 import os
 import re
+import sqlite3
 import threading
 import traceback
 
@@ -8,7 +9,7 @@ from flask import Flask, jsonify, request, session, send_from_directory
 from werkzeug.exceptions import HTTPException
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from db import get_db, close_db, init_db, now
+from db import get_db, close_db, init_db, now, DB_PATH
 import autofix
 import gamegen
 
@@ -29,8 +30,10 @@ if not app.secret_key:
 # Set when the frontend is hosted on a different domain than this API
 # (e.g. frontend on Netlify, backend on Render). Cross-site cookies require
 # SameSite=None + Secure, so both only turn on when this is configured.
-ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN')
-CROSS_ORIGIN = bool(ALLOWED_ORIGIN)
+# Comma-separated list, since a custom domain and the netlify.app
+# subdomain both need to work at once.
+ALLOWED_ORIGINS = [o.strip() for o in (os.environ.get('ALLOWED_ORIGIN') or '').split(',') if o.strip()]
+CROSS_ORIGIN = bool(ALLOWED_ORIGINS)
 
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -49,8 +52,9 @@ def handle_preflight():
 
 @app.after_request
 def add_cors_headers(response):
-    if ALLOWED_ORIGIN:
-        response.headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGIN
+    origin = request.headers.get('Origin')
+    if origin and origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
@@ -224,6 +228,24 @@ def list_resource(resource):
     return jsonify(items=[dict(r) for r in rows])
 
 
+def sync_games_seed_async():
+    """After any create/update/delete on games, push the current list to
+    games/games_seed.json in the background, so it survives the database
+    getting wiped on the next redeploy. Uses its own sqlite connection
+    since Flask's request-bound `g` won't exist once this thread outlives
+    the request."""
+    def run():
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute('SELECT title, genre, status, slug FROM games ORDER BY id').fetchall()
+            conn.close()
+            gamegen.persist_games_list([dict(r) for r in rows])
+        except Exception:
+            app.logger.exception('Failed to persist games_seed.json')
+    threading.Thread(target=run, daemon=True).start()
+
+
 def create_resource(resource):
     _, err = require_admin()
     if err:
@@ -274,6 +296,7 @@ def create_resource(resource):
                 tb = traceback.format_exc()
                 app.logger.error('Game generation failed:\n%s', tb)
                 generation = {'ok': False, 'message': str(e), 'traceback': tb}
+        sync_games_seed_async()
 
     return jsonify(item=item, generation=generation), 201
 
@@ -344,6 +367,8 @@ def update_resource(resource, item_id):
             (*values.values(), item_id),
         )
         db.commit()
+        if resource == 'games':
+            sync_games_seed_async()
     row = db.execute(f"SELECT * FROM {cfg['table']} WHERE id = ?", (item_id,)).fetchone()
     return jsonify(item=dict(row))
 
@@ -356,6 +381,8 @@ def delete_resource(resource, item_id):
     db = get_db()
     db.execute(f"DELETE FROM {cfg['table']} WHERE id = ?", (item_id,))
     db.commit()
+    if resource == 'games':
+        sync_games_seed_async()
     return jsonify(ok=True)
 
 

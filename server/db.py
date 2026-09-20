@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -6,6 +7,8 @@ from flask import g
 from werkzeug.security import generate_password_hash
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'playnexus.db')
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GAMES_SEED_PATH = os.path.join(ROOT_DIR, 'games', 'games_seed.json')
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -91,6 +94,23 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def load_games_seed():
+    """Games added/edited via the admin panel are persisted here (see
+    gamegen.persist_games_list) so they survive a redeploy, which wipes
+    the ephemeral SQLite file on Render's free tier. Falls back to the
+    hardcoded defaults if this file doesn't exist yet or is unreadable."""
+    if os.path.exists(GAMES_SEED_PATH):
+        try:
+            with open(GAMES_SEED_PATH, encoding='utf-8') as f:
+                data = json.load(f)
+            rows = [(g['title'], g['genre'], g.get('status', 'Live'), g['slug']) for g in data]
+            if rows:
+                return rows
+        except Exception:
+            pass
+    return None
+
+
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(DB_PATH)
@@ -113,7 +133,7 @@ def init_db(app):
         if db.execute('SELECT COUNT(*) FROM games').fetchone()[0] == 0:
             db.executemany(
                 'INSERT INTO games (title, genre, status, slug) VALUES (?, ?, ?, ?)',
-                DEFAULT_GAMES,
+                load_games_seed() or DEFAULT_GAMES,
             )
         if db.execute('SELECT COUNT(*) FROM shop_items').fetchone()[0] == 0:
             db.executemany(

@@ -8,6 +8,7 @@ environment — if they're missing, callers get a clear error instead of a
 crash, and the game record itself is still created either way.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -16,6 +17,7 @@ import requests
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAMES_DIR = os.path.join(ROOT_DIR, 'games')
+GAMES_SEED_REL_PATH = 'games/games_seed.json'
 
 ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 MODEL = 'claude-sonnet-5'
@@ -243,3 +245,22 @@ def generate_and_publish(title, genre, slug):
     html = inject_error_reporter(html, slug)
     write_game_file(slug, html)
     return commit_and_push_files([f'games/{slug}.html'], f'Add AI-generated game: {title}')
+
+
+def persist_games_list(games):
+    """Write the current games list to games/games_seed.json and push it,
+    so it survives the database getting wiped on the next redeploy (the
+    free-tier SQLite file is ephemeral, but the git repo isn't). Best
+    effort: the DB write that triggered this has already succeeded
+    either way, so a push failure here shouldn't be treated as fatal by
+    callers — just logged/surfaced, not raised as blocking.
+    `games` is a list of dicts with title/genre/status/slug."""
+    path = os.path.join(ROOT_DIR, GAMES_SEED_REL_PATH)
+    payload = [
+        {'title': g['title'], 'genre': g['genre'], 'status': g['status'], 'slug': g['slug']}
+        for g in games
+    ]
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2)
+        f.write('\n')
+    return commit_and_push_files([GAMES_SEED_REL_PATH], 'Update games list')

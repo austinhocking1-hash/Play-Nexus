@@ -17,7 +17,7 @@ services:
       - key: FLASK_ENV
         value: production
       - key: ALLOWED_ORIGIN
-        value: https://letsplaynexus.netlify.app
+        value: https://letsplaynexus.netlify.app,https://letsplaynexus.online,https://www.letsplaynexus.online
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: GITHUB_TOKEN
