@@ -446,6 +446,40 @@ async function renderSuggestions() {
   }
 }
 
+async function renderWeekly() {
+  const cur = document.getElementById('weeklyCurrent');
+  try {
+    const { current } = await api('/api/weekly');
+    cur.innerHTML = current
+      ? `<b>Active:</b> ${escapeHtml(current.game)}, prize: ${escapeHtml(current.prize)} (+${current.bonus_nexbucks} NexBucks). Leader: ${current.top[0] ? escapeHtml(current.top[0].player_name) + ' (' + current.top[0].score + ')' : 'nobody yet'}`
+      : '<b>No active week.</b>';
+  } catch (e) { cur.textContent = 'Could not load.'; }
+}
+
+function setupWeekly() {
+  const msg = document.getElementById('weeklyMsg');
+  document.getElementById('weeklyStartBtn').onclick = async () => {
+    try {
+      const d = await api('/api/admin/weekly/start', { method: 'POST', body: JSON.stringify({
+        prize: document.getElementById('weeklyPrize').value,
+        bonus: document.getElementById('weeklyBonus').value,
+        game: document.getElementById('weeklyGame').value,
+      })});
+      msg.textContent = 'Week started! Game: ' + d.game;
+    } catch (e) { msg.textContent = e.message; }
+    renderWeekly();
+  };
+  document.getElementById('weeklyEndBtn').onclick = async () => {
+    if (!confirm('End the week and award the current #1?')) return;
+    try {
+      const d = await api('/api/admin/weekly/end', { method: 'POST' });
+      msg.textContent = `Winner: ${d.winner} (${d.score}). Prize: ${d.prize}`;
+    } catch (e) { msg.textContent = e.message; }
+    renderWeekly();
+  };
+  renderWeekly();
+}
+
 let initialized = false;
 function renderAll() {
   checkHealth();
@@ -459,5 +493,6 @@ function renderAll() {
   setupShop();
   setupChallenges();
   setupLeaderboard();
+  setupWeekly();
   updateStats();
 }

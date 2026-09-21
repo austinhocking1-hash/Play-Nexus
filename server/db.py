@@ -60,6 +60,26 @@ CREATE TABLE IF NOT EXISTS purchases (
     redeemed_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS weekly_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game TEXT NOT NULL,
+    prize TEXT NOT NULL,
+    bonus_nexbucks INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    started_at TEXT NOT NULL,
+    ended_at TEXT NOT NULL DEFAULT '',
+    winner_name TEXT NOT NULL DEFAULT '',
+    winner_score INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS weekly_scores (
+    event_id INTEGER NOT NULL REFERENCES weekly_events(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    player_name TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    PRIMARY KEY (event_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS suggestions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL DEFAULT '',

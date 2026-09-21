@@ -36,6 +36,7 @@
     <button class="nav-item" data-panel="challenges">🏆 Challenges</button>
     <button class="nav-item" data-panel="leaderboard">📊 Leaderboard</button>
     <button class="nav-item" data-panel="suggestions">💡 Suggestions</button>
+    <button class="nav-item" data-panel="weekly">🎁 Weekly Prize</button>
 
     <div class="sidebar-footer">
       <button class="logout-btn" id="logoutBtn">Log Out</button>
@@ -52,6 +53,27 @@
           <tbody id="suggestionsTableBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="panel" id="panel-weekly">
+      <h1>Weekly Prize</h1>
+      <p class="section-hint">Start a week: set the prize and a random pick (or your choice) selects which game to compete on. When you end the week, the #1 score on that game wins (and gets the NexBucks bonus, if any).</p>
+      <div id="weeklyCurrent" style="margin:16px 0"></div>
+      <div class="form-grid" id="weeklyForm">
+        <label>Prize <input type="text" id="weeklyPrize" placeholder="Gold Crown badge"></label>
+        <label>NexBucks bonus <input type="number" id="weeklyBonus" value="500" min="0"></label>
+        <label>Game
+          <select id="weeklyGame">
+            <option value="">Random</option>
+            <option>Nexus Chomper</option>
+            <option>Penalty Shootout</option>
+            <option>Boss Battle</option>
+          </select>
+        </label>
+        <button class="btn" id="weeklyStartBtn">Start Week (pick game)</button>
+      </div>
+      <button class="btn" id="weeklyEndBtn" style="margin-top:12px">End Week &amp; Award Winner</button>
+      <p id="weeklyMsg" class="section-hint"></p>
     </section>
 
     <!-- Dashboard -->

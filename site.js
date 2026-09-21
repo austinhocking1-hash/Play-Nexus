@@ -248,3 +248,28 @@ async function renderLeaderboard() {
   renderShop();
   renderLeaderboard();
 })();
+
+
+// ---------- Weekly prize ----------
+(async function loadWeekly() {
+  try {
+    const { current, past } = await api('/api/weekly');
+    const sec = document.getElementById('weekly');
+    if (!current && !past.length) return;
+    sec.style.display = '';
+    const lede = document.getElementById('weeklyLede');
+    const body = document.getElementById('weeklyBody');
+    if (current) {
+      lede.innerHTML = `This week: play <b>${escapeHtml(current.game)}</b>. The #1 score wins <b>${escapeHtml(current.prize)}</b>${current.bonus_nexbucks ? ` + ${current.bonus_nexbucks} NexBucks` : ''}!`;
+      body.innerHTML = current.top.length
+        ? current.top.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.player_name)}</td><td>${r.score.toLocaleString()}</td></tr>`).join('')
+        : '<tr><td colspan="3">No scores yet. Be the first!</td></tr>';
+    } else {
+      lede.textContent = 'The next weekly prize is coming soon.';
+      body.innerHTML = '';
+    }
+    document.getElementById('weeklyPast').innerHTML = past.length
+      ? 'Past winners: ' + past.map(p => `${escapeHtml(p.winner_name)} (${escapeHtml(p.game)}, ${escapeHtml(p.prize)})`).join(' &middot; ')
+      : '';
+  } catch (e) {}
+})();

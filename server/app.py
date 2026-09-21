@@ -579,6 +579,18 @@ def leaderboard_submit():
         )
         db.commit()
 
+    ev = db.execute("SELECT * FROM weekly_events WHERE status = 'active' ORDER BY id DESC LIMIT 1").fetchone()
+    if ev and ev['game'] == game:
+        row = db.execute('SELECT score FROM weekly_scores WHERE event_id = ? AND user_id = ?',
+                         (ev['id'], user['id'])).fetchone()
+        if not row:
+            db.execute('INSERT INTO weekly_scores (event_id, user_id, player_name, score) VALUES (?, ?, ?, ?)',
+                       (ev['id'], user['id'], user['username'], score))
+        elif score > row['score']:
+            db.execute('UPDATE weekly_scores SET score = ? WHERE event_id = ? AND user_id = ?',
+                       (score, ev['id'], user['id']))
+        db.commit()
+
     earned_today = user['earned_today'] if user['earned_date'] == today_str() else 0
     earned = max(0, min(5 + max(score, 0) // 10, 25, 200 - earned_today))
     if earned:
@@ -602,6 +614,69 @@ def claim_daily():
                (reward, streak, today_str(), user['id']))
     db.commit()
     return jsonify(reward=reward, streak=streak, nexbucks=user['nexbucks'] + reward)
+
+
+# ---------- weekly prize ----------
+
+SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle']
+
+
+@app.get('/api/weekly')
+def weekly_info():
+    db = get_db()
+    ev = db.execute("SELECT * FROM weekly_events WHERE status = 'active' ORDER BY id DESC LIMIT 1").fetchone()
+    current = None
+    if ev:
+        top = db.execute('SELECT player_name, score FROM weekly_scores WHERE event_id = ? '
+                         'ORDER BY score DESC LIMIT 5', (ev['id'],)).fetchall()
+        current = {**dict(ev), 'top': [dict(r) for r in top]}
+    past = db.execute("SELECT game, prize, winner_name, winner_score, ended_at FROM weekly_events "
+                      "WHERE status = 'ended' ORDER BY id DESC LIMIT 5").fetchall()
+    return jsonify(current=current, past=[dict(r) for r in past])
+
+
+@app.post('/api/admin/weekly/start')
+def weekly_start():
+    import random
+    _, err = require_admin()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    prize = str(data.get('prize') or '').strip()[:120]
+    if not prize:
+        return jsonify(error='Enter a prize'), 400
+    try:
+        bonus = max(0, int(data.get('bonus') or 0))
+    except (TypeError, ValueError):
+        return jsonify(error='Bonus must be a number'), 400
+    game = str(data.get('game') or '').strip() or random.choice(SCORING_GAMES)
+    db = get_db()
+    if db.execute("SELECT 1 FROM weekly_events WHERE status = 'active'").fetchone():
+        return jsonify(error='A weekly event is already running. End it first.'), 400
+    db.execute('INSERT INTO weekly_events (game, prize, bonus_nexbucks, started_at) VALUES (?, ?, ?, ?)',
+               (game, prize, bonus, now()))
+    db.commit()
+    return jsonify(ok=True, game=game), 201
+
+
+@app.post('/api/admin/weekly/end')
+def weekly_end():
+    _, err = require_admin()
+    if err:
+        return err
+    db = get_db()
+    ev = db.execute("SELECT * FROM weekly_events WHERE status = 'active' ORDER BY id DESC LIMIT 1").fetchone()
+    if not ev:
+        return jsonify(error='No active weekly event'), 400
+    top = db.execute('SELECT * FROM weekly_scores WHERE event_id = ? ORDER BY score DESC LIMIT 1',
+                     (ev['id'],)).fetchone()
+    name, score = (top['player_name'], top['score']) if top else ('No winner', 0)
+    if top and ev['bonus_nexbucks']:
+        db.execute('UPDATE users SET nexbucks = nexbucks + ? WHERE id = ?', (ev['bonus_nexbucks'], top['user_id']))
+    db.execute("UPDATE weekly_events SET status = 'ended', ended_at = ?, winner_name = ?, winner_score = ? WHERE id = ?",
+               (now(), name, score, ev['id']))
+    db.commit()
+    return jsonify(ok=True, winner=name, score=score, prize=ev['prize'])
 
 
 # ---------- shop redemption (real balance, tied to a real account) ----------
