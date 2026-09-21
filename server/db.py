@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS purchases (
     price_paid INTEGER NOT NULL,
     redeemed_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 DEFAULT_GAMES = [

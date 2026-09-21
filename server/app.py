@@ -395,6 +395,29 @@ for _resource in RESOURCE_CONFIG:
 
 # ---------- leaderboard ----------
 
+@app.post('/api/suggestions')
+def submit_suggestion():
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    name = (data.get('name') or '').strip()[:60]
+    if len(message) < 3:
+        return jsonify(error='Please write a suggestion'), 400
+    db = get_db()
+    db.execute('INSERT INTO suggestions (name, message, created_at) VALUES (?, ?, ?)',
+               (name, message[:1000], now()))
+    db.commit()
+    return jsonify(ok=True), 201
+
+
+@app.get('/api/suggestions')
+def list_suggestions():
+    _, err = require_admin()
+    if err:
+        return err
+    rows = get_db().execute('SELECT * FROM suggestions ORDER BY id DESC').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
 @app.get('/api/health')
 def health():
     db = get_db()
