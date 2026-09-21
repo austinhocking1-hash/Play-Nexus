@@ -230,6 +230,11 @@ h2 {
   display: flex;
   gap: 16px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-actions .btn {
+  white-space: nowrap;
 }
 
 /* Games */
