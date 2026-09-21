@@ -117,6 +117,19 @@ def require_admin():
     return user, None
 
 
+def today_str(offset=0):
+    from datetime import datetime, timedelta, timezone
+    return (datetime.now(timezone.utc) + timedelta(days=offset)).strftime('%Y-%m-%d')
+
+
+def next_streak(u):
+    return (u['streak'] + 1) if u['last_claim'] == today_str(-1) or u['last_claim'] == today_str() else 1
+
+
+def daily_reward(streak):
+    return min(50 + 25 * (max(streak, 1) - 1), 250)
+
+
 def user_public(u):
     return {
         'id': u['id'],
@@ -124,6 +137,9 @@ def user_public(u):
         'email': u['email'],
         'role': u['role'],
         'nexbucks': u['nexbucks'],
+        'streak': u['streak'],
+        'can_claim': u['last_claim'] != today_str(),
+        'next_reward': daily_reward(next_streak(u)),
     }
 
 
@@ -562,7 +578,30 @@ def leaderboard_submit():
             (user['id'], user['username'], game, score),
         )
         db.commit()
-    return jsonify(ok=True)
+
+    earned_today = user['earned_today'] if user['earned_date'] == today_str() else 0
+    earned = max(0, min(5 + max(score, 0) // 10, 25, 200 - earned_today))
+    if earned:
+        db.execute('UPDATE users SET nexbucks = nexbucks + ?, earned_today = ?, earned_date = ? WHERE id = ?',
+                   (earned, earned_today + earned, today_str(), user['id']))
+        db.commit()
+    return jsonify(ok=True, earned=earned)
+
+
+@app.post('/api/rewards/daily')
+def claim_daily():
+    user, err = require_login()
+    if err:
+        return err
+    if user['last_claim'] == today_str():
+        return jsonify(error='Already claimed today. Come back tomorrow!'), 400
+    streak = (user['streak'] + 1) if user['last_claim'] == today_str(-1) else 1
+    reward = daily_reward(streak)
+    db = get_db()
+    db.execute('UPDATE users SET nexbucks = nexbucks + ?, streak = ?, last_claim = ? WHERE id = ?',
+               (reward, streak, today_str(), user['id']))
+    db.commit()
+    return jsonify(reward=reward, streak=streak, nexbucks=user['nexbucks'] + reward)
 
 
 # ---------- shop redemption (real balance, tied to a real account) ----------

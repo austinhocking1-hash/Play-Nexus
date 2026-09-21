@@ -64,6 +64,8 @@
   <button class="right" data-dir="3" aria-label="Right">&#9654;</button>
 </div>
 
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
 <script>
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -591,6 +593,7 @@ function gameOver() {
   btn.textContent = 'Play Again';
   btn.onclick = start;
   msg.appendChild(btn);
+  NexusScore.submit('Nexus Chomper', score);
 }
 
 function start() {

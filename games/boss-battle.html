@@ -29,6 +29,8 @@
 </div>
 <p class="controls-hint">Move: &larr; &rarr; / A-D / drag &middot; Attack: tap or click the boss</p>
 
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
 <script>
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -295,6 +297,7 @@ function win() {
   btn.textContent = 'Fight Again';
   btn.onclick = start;
   msg.appendChild(btn);
+  NexusScore.submit('Boss Battle', 1000 + player.hp * 10);
 }
 
 function lose() {
@@ -307,6 +310,7 @@ function lose() {
   btn.textContent = 'Try Again';
   btn.onclick = start;
   msg.appendChild(btn);
+  NexusScore.submit('Boss Battle', hits * 10);
 }
 
 function start() {

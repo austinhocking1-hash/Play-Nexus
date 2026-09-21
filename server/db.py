@@ -136,6 +136,12 @@ def init_db(app):
     with app.app_context():
         db = sqlite3.connect(DB_PATH)
         db.executescript(SCHEMA)
+        for col in ("streak INTEGER NOT NULL DEFAULT 0", "last_claim TEXT NOT NULL DEFAULT ''",
+                    "earned_today INTEGER NOT NULL DEFAULT 0", "earned_date TEXT NOT NULL DEFAULT ''"):
+            try:
+                db.execute('ALTER TABLE users ADD COLUMN ' + col)
+            except sqlite3.OperationalError:
+                pass
 
         if db.execute('SELECT COUNT(*) FROM games').fetchone()[0] == 0:
             db.executemany(

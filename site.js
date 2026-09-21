@@ -96,6 +96,7 @@ signupForm.addEventListener('submit', async e => {
 });
 
 function renderAccount() {
+  renderDailyBanner();
   if (currentUser) {
     navAccount.innerHTML = `
       <span class="account-name">${escapeHtml(currentUser.username)}</span>
@@ -115,6 +116,35 @@ function renderAccount() {
     document.getElementById('signInBtn').addEventListener('click', () => openAuthPanel('login'));
     const walletBalance = document.getElementById('walletBalance');
     if (walletBalance) walletBalance.textContent = 'Sign in to see balance';
+  }
+}
+
+// ---------- Daily reward ----------
+function renderDailyBanner() {
+  let b = document.getElementById('dailyBanner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'dailyBanner';
+    b.style.cssText = 'text-align:center;padding:10px 16px;font-weight:600;background:linear-gradient(90deg,#7c5cff,#ff5c9e);color:#fff';
+    document.body.insertBefore(b, document.body.firstChild);
+  }
+  if (!currentUser) {
+    b.innerHTML = 'Sign in to claim free daily NexBucks and build a streak!';
+  } else if (currentUser.can_claim) {
+    b.innerHTML = `Daily reward ready: +${currentUser.next_reward} NexBucks <button class="btn btn-secondary" id="claimBtn" style="margin-left:12px;padding:6px 14px">Claim</button>`;
+    document.getElementById('claimBtn').onclick = async () => {
+      try {
+        const d = await api('/api/rewards/daily', { method: 'POST' });
+        currentUser.nexbucks = d.nexbucks;
+        currentUser.streak = d.streak;
+        currentUser.can_claim = false;
+        currentUser.next_reward = Math.min(50 + 25 * d.streak, 250);
+        renderAccount();
+        b.textContent = `+${d.reward} NexBucks claimed! Streak: ${d.streak} day${d.streak > 1 ? 's' : ''}. Come back tomorrow for +${currentUser.next_reward}!`;
+      } catch (e) { b.textContent = e.message; }
+    };
+  } else {
+    b.textContent = `Streak: ${currentUser.streak} day${currentUser.streak > 1 ? 's' : ''}. Come back tomorrow for +${currentUser.next_reward} NexBucks!`;
   }
 }
 
