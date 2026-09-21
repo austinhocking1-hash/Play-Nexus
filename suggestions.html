@@ -15,8 +15,8 @@
     border: 1px solid var(--border); background: var(--card); color: var(--text);
   }
   .sg-form textarea { min-height: 140px; resize: vertical; }
-  #sgStatus { min-height: 1.4em; }
-  #sgStatus.ok { color: #4ade80; } #sgStatus.err { color: var(--accent-2); }
+  #sgStatus, #bugStatus { min-height: 1.4em; }
+  #sgStatus.ok, #bugStatus.ok { color: #4ade80; } #sgStatus.err, #bugStatus.err { color: var(--accent-2); }
 </style>
 </head>
 <body>
@@ -35,6 +35,14 @@
     <button class="btn btn-primary" type="submit">Send Suggestion</button>
     <div id="sgStatus"></div>
   </form>
+  <h1 style="margin-top:48px">Report a Bug</h1>
+  <p>Found something broken in a game? Describe it and our AI will try to fix it automatically.</p>
+  <form class="sg-form" id="bugForm">
+    <select id="bugGame" required style="width:100%;padding:12px 14px;border-radius:10px;font:inherit;border:1px solid var(--border);background:var(--card);color:var(--text)"></select>
+    <textarea id="bugDesc" placeholder="What went wrong? (e.g. the ball goes through the wall)" maxlength="600" required></textarea>
+    <button class="btn btn-primary" type="submit">Report Bug</button>
+    <div id="bugStatus"></div>
+  </form>
 </main>
 <script src="/config.js"></script>
 <script>
@@ -52,6 +60,25 @@ document.getElementById('sgForm').addEventListener('submit', async e => {
     if (!r.ok) throw new Error(d.error || 'Failed (' + r.status + ')');
     st.className = 'ok'; st.textContent = 'Thanks! Your suggestion was sent.';
     e.target.reset();
+  } catch (err) { st.className = 'err'; st.textContent = err.message; }
+});
+
+fetch(API + '/api/games').then(r => r.json()).then(d => {
+  bugGame.innerHTML = d.items.filter(g => g.slug).map(g => `<option value="${g.slug}">${g.title.replace(/</g,'&lt;')}</option>`).join('');
+}).catch(() => {});
+document.getElementById('bugForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const st = document.getElementById('bugStatus');
+  st.className = ''; st.textContent = 'Sending...';
+  try {
+    const r = await fetch(API + '/api/bug-reports', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({slug: bugGame.value, description: bugDesc.value})
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Failed (' + r.status + ')');
+    st.className = 'ok'; st.textContent = 'Thanks! The AI is working on a fix. It can take a few minutes to go live.';
+    bugDesc.value = '';
   } catch (err) { st.className = 'err'; st.textContent = err.message; }
 });
 </script>

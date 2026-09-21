@@ -434,9 +434,22 @@ async function checkHealth() {
   }
 }
 
+async function renderSuggestions() {
+  const body = document.getElementById('suggestionsTableBody');
+  try {
+    const items = await api('/api/suggestions');
+    body.innerHTML = items.length
+      ? items.map(x => `<tr><td>${escapeHtml(x.created_at)}</td><td>${escapeHtml(x.name || 'Anonymous')}</td><td>${escapeHtml(x.message)}</td></tr>`).join('')
+      : '<tr><td colspan="3">No suggestions yet.</td></tr>';
+  } catch (e) {
+    body.innerHTML = '<tr><td colspan="3">Could not load suggestions.</td></tr>';
+  }
+}
+
 let initialized = false;
 function renderAll() {
   checkHealth();
+  renderSuggestions();
   if (initialized) {
     updateStats();
     return;

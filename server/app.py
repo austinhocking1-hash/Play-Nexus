@@ -409,6 +409,33 @@ def submit_suggestion():
     return jsonify(ok=True), 201
 
 
+_bug_hits = {}
+
+
+@app.post('/api/bug-reports')
+def submit_bug_report():
+    import time
+    data = request.get_json(silent=True) or {}
+    slug = re.sub(r'[^a-z0-9-]', '', str(data.get('slug') or '')[:60])
+    desc = str(data.get('description') or '').strip()[:600]
+    if not slug or len(desc) < 5:
+        return jsonify(error='Pick a game and describe the bug'), 400
+    if not os.path.exists(os.path.join(gamegen.GAMES_DIR, f'{slug}.html')):
+        return jsonify(error='Game not found'), 404
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    t = time.time()
+    hits = [h for h in _bug_hits.get(ip, []) if t - h < 3600]
+    if len(hits) >= 3:
+        return jsonify(error='Too many bug reports, try again later'), 429
+    _bug_hits[ip] = hits + [t]
+    threading.Thread(
+        target=autofix.fix_game_file,
+        args=(slug, 'Player-reported bug: ' + desc, ''),
+        daemon=True,
+    ).start()
+    return jsonify(ok=True), 202
+
+
 @app.get('/api/suggestions')
 def list_suggestions():
     _, err = require_admin()
