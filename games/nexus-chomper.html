@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Chomper — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<style>
+  .dpad {
+    display: none;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(2, 64px);
+    gap: 8px;
+    justify-content: center;
+    margin-top: 16px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .dpad button {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 1.4rem;
+    cursor: pointer;
+    touch-action: none;
+  }
+  .dpad button:active { background: var(--accent); }
+  .dpad .up    { grid-column: 2; grid-row: 1; }
+  .dpad .left  { grid-column: 1; grid-row: 2; }
+  .dpad .down  { grid-column: 2; grid-row: 2; }
+  .dpad .right { grid-column: 3; grid-row: 2; }
+  @media (pointer: coarse) { .dpad { display: grid; } }
+</style>
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Nexus <span>Chomper</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="532" height="588"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Nexus Chomper</h2>
+    <p>Gobble every dot in the maze while four hunter bots chase you. Grab a glowing power pellet to turn the tables and eat them! Arrow keys / WASD or swipe to steer.</p>
+    <button class="btn" id="startBtn">Start Chomping</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Lives: <b id="livesEl">3</b></span>
+  <span>Level: <b id="levelEl">1</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Move: arrow keys / WASD / swipe &middot; Power pellets let you eat the bots</p>
+
+<div class="dpad" id="dpad">
+  <button class="up" data-dir="0" aria-label="Up">&#9650;</button>
+  <button class="left" data-dir="1" aria-label="Left">&#9664;</button>
+  <button class="down" data-dir="2" aria-label="Down">&#9660;</button>
+  <button class="right" data-dir="3" aria-label="Right">&#9654;</button>
+</div>
+
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const scoreEl = document.getElementById('scoreEl');
+const livesEl = document.getElementById('livesEl');
+const levelEl = document.getElementById('levelEl');
+const bestEl = document.getElementById('bestEl');
+
+const T = 28;
+const MAZE = [
+  '###################',
+  '#........#........#',
+  '#o##.###.#.###.##o#',
+  '#.................#',
+  '#.##.#.#####.#.##.#',
+  '#....#...#...#....#',
+  '####.### # ###.####',
+  '   #.#       #.#   ',
+  '####.# ##D## #.####',
+  '    .  #GGG#  .    ',
+  '####.# ##### #.####',
+  '   #.#       #.#   ',
+  '####.# ##### #.####',
+  '#........#........#',
+  '#.##.###.#.###.##.#',
+  '#o.#.....P.....#.o#',
+  '##.#.#.#####.#.#.##',
+  '#....#...#...#....#',
+  '#.######.#.######.#',
+  '#.................#',
+  '###################',
+];
+const ROWS = MAZE.length, COLS = MAZE[0].length;
+const W = canvas.width, H = canvas.height;
+
+const PLAYER_START = { x: 9, y: 15 };
+const PLAYER_SPEED = 6.6;
+const DIRS = [
+  { dx: 0, dy: -1 }, // up
+  { dx: -1, dy: 0 }, // left
+  { dx: 0, dy: 1 },  // down
+  { dx: 1, dy: 0 },  // right
+];
+const GHOST_DEFS = [
+  { color: '#ff5c9e', start: { x: 9, y: 7 },  state: 'active', release: 0,   scatter: { x: 17, y: 1 } },
+  { color: '#2fd0ff', start: { x: 8, y: 9 },  state: 'house',  release: 2.5, scatter: { x: 1, y: 1 } },
+  { color: '#ffb84c', start: { x: 9, y: 9 },  state: 'house',  release: 5,   scatter: { x: 1, y: 19 } },
+  { color: '#3fd1c5', start: { x: 10, y: 9 }, state: 'house',  release: 7.5, scatter: { x: 17, y: 19 } },
+];
+
+let grid, dotsLeft, homeField, exitField;
+let score = 0, lives = 3, level = 1;
+let best = Number(localStorage.getItem('chomper-best') || 0);
+let running = false, phase = 'ready', phaseTimer = 0;
+let player, ghosts = [], gameTime = 0, frightUntil = 0, eatChain = 0, popups = [];
+let lastT = 0, animId;
+
+bestEl.textContent = best;
+
+function wrapX(x) { return (x + COLS) % COLS; }
+function tileAt(x, y) {
+  if (y < 0 || y >= ROWS) return '#';
+  return grid[y][wrapX(x)];
+}
+function passable(x, y, door) {
+  const t = tileAt(x, y);
+  if (t === '#') return false;
+  if (t === 'D') return !!door;
+  return true;
+}
+
+function bfsField(tx, ty) {
+  const f = Array.from({ length: ROWS }, () => Array(COLS).fill(Infinity));
+  const q = [[tx, ty]];
+  f[ty][tx] = 0;
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const d of DIRS) {
+      const nx = wrapX(x + d.dx), ny = y + d.dy;
+      if (ny < 0 || ny >= ROWS) continue;
+      if (!passable(nx, ny, true)) continue;
+      if (f[ny][nx] !== Infinity) continue;
+      f[ny][nx] = f[y][x] + 1;
+      q.push([nx, ny]);
+    }
+  }
+  return f;
+}
+
+function buildGrid() {
+  grid = MAZE.map(r => r.split('').map(c => (c === 'P' || c === 'G') ? ' ' : c));
+  // wall off anything the player can never reach so it doesn't render as odd empty pockets
+  const reach = bfsField(PLAYER_START.x, PLAYER_START.y);
+  dotsLeft = 0;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (grid[y][x] !== '#' && reach[y][x] === Infinity) grid[y][x] = '#';
+      if (grid[y][x] === '.' || grid[y][x] === 'o') dotsLeft++;
+    }
+  }
+  homeField = bfsField(9, 9);
+  exitField = bfsField(9, 7);
+}
+
+function makeEntity(x, y) {
+  return { x, y, dx: 0, dy: 0, dir: { dx: -1, dy: 0 }, t: 0, moving: false };
+}
+function entityPos(e) {
+  return e.moving ? { x: e.x + e.dx * e.t, y: e.y + e.dy * e.t } : { x: e.x, y: e.y };
+}
+function reverseEntity(e) {
+  if (e.moving) {
+    e.x = wrapX(e.x + e.dx);
+    e.y += e.dy;
+    e.dx = -e.dx;
+    e.dy = -e.dy;
+    e.t = 1 - e.t;
+    e.dir = { dx: e.dx, dy: e.dy };
+  } else {
+    e.dir = { dx: -e.dir.dx, dy: -e.dir.dy };
+  }
+}
+
+function advance(e, dist, choose, arrive) {
+  let guard = 0;
+  while (dist > 0 && guard++ < 20) {
+    if (!e.moving) {
+      const d = choose(e);
+      if (!d) return;
+      e.dx = d.dx; e.dy = d.dy;
+      e.dir = { dx: d.dx, dy: d.dy };
+      e.moving = true;
+      e.t = 0;
+    }
+    const remain = 1 - e.t;
+    if (dist < remain) { e.t += dist; return; }
+    dist -= remain;
+    e.x = wrapX(e.x + e.dx);
+    e.y += e.dy;
+    e.t = 0;
+    e.moving = false;
+    arrive(e);
+  }
+}
+
+function choosePlayer(e) {
+  const n = player.next;
+  if (n && passable(e.x + n.dx, e.y + n.dy, false)) return n;
+  const c = e.dir;
+  if (c && passable(e.x + c.dx, e.y + c.dy, false)) return c;
+  return null;
+}
+
+function playerArrive(e) {
+  const t = tileAt(e.x, e.y);
+  if (t === '.') {
+    grid[e.y][e.x] = ' ';
+    score += 10;
+    dotsLeft--;
+    setHud();
+  } else if (t === 'o') {
+    grid[e.y][e.x] = ' ';
+    score += 50;
+    dotsLeft--;
+    startFright();
+    setHud();
+  }
+}
+
+function isScatterPhase() {
+  const s = Math.max(2, 6 - level);
+  return (gameTime % (s + 18)) < s;
+}
+
+function ghostTarget(g) {
+  if (isScatterPhase()) return g.scatter;
+  const pp = { x: player.x, y: player.y };
+  switch (g.index) {
+    case 0: return pp;
+    case 1: return { x: pp.x + player.dir.dx * 4, y: pp.y + player.dir.dy * 4 };
+    case 2:
+      if (Math.random() < 0.4) return { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+      return pp;
+    default:
+      return Math.hypot(g.x - pp.x, g.y - pp.y) > 8 ? pp : g.scatter;
+  }
+}
+
+function chooseGhost(g) {
+  const useField = g.state === 'leaving' || g.state === 'eaten';
+  let opts = [];
+  for (const d of DIRS) {
+    if (passable(g.x + d.dx, g.y + d.dy, useField)) opts.push(d);
+  }
+  if (!opts.length) return null;
+
+  if (useField) {
+    const f = g.state === 'eaten' ? homeField : exitField;
+    let best = null, bv = Infinity;
+    for (const d of opts) {
+      const ny = g.y + d.dy, nx = wrapX(g.x + d.dx);
+      const v = (f[ny] && f[ny][nx] !== undefined) ? f[ny][nx] : Infinity;
+      if (v < bv) { bv = v; best = d; }
+    }
+    return best;
+  }
+
+  if (opts.length > 1) {
+    opts = opts.filter(d => !(d.dx === -g.dir.dx && d.dy === -g.dir.dy));
+  }
+  if (g.frightened) return opts[Math.floor(Math.random() * opts.length)];
+
+  const target = ghostTarget(g);
+  let best = null, bv = Infinity;
+  for (const d of opts) {
+    const nx = g.x + d.dx, ny = g.y + d.dy;
+    const dd = (nx - target.x) ** 2 + (ny - target.y) ** 2;
+    if (dd < bv) { bv = dd; best = d; }
+  }
+  return best;
+}
+
+function ghostArrive(g) {
+  if (g.state === 'leaving' && g.y <= 7) {
+    g.state = 'active';
+    g.dir = { dx: Math.random() < 0.5 ? -1 : 1, dy: 0 };
+  } else if (g.state === 'eaten' && g.x === 9 && g.y === 9) {
+    g.state = 'leaving';
+    g.frightened = false;
+  }
+}
+
+function ghostSpeed(g) {
+  if (g.state === 'house') return 0;
+  if (g.state === 'eaten') return 11;
+  if (g.state === 'leaving') return 4;
+  if (g.frightened) return 3.2;
+  return Math.min(6.2, 5 + 0.25 * (level - 1));
+}
+
+function updateGhost(g, dt) {
+  if (g.state === 'house') {
+    if (gameTime >= g.release) g.state = 'leaving';
+    return;
+  }
+  advance(g, ghostSpeed(g) * dt, chooseGhost, ghostArrive);
+}
+
+function startFright() {
+  frightUntil = gameTime + Math.max(3, 7 - 0.5 * (level - 1));
+  eatChain = 0;
+  for (const g of ghosts) {
+    if (g.state === 'active') {
+      if (!g.frightened) { g.frightened = true; reverseEntity(g); }
+    } else if (g.state === 'leaving') {
+      g.frightened = true;
+    }
+  }
+}
+
+function checkCollisions() {
+  const pp = entityPos(player);
+  for (const g of ghosts) {
+    if (g.state === 'house' || g.state === 'eaten') continue;
+    const gp = entityPos(g);
+    let dx = Math.abs(gp.x - pp.x);
+    if (dx > COLS / 2) dx = COLS - dx;
+    const dy = gp.y - pp.y;
+    if (Math.hypot(dx, dy) < 0.6) {
+      if (g.frightened) {
+        g.state = 'eaten';
+        g.frightened = false;
+        const pts = 200 * Math.pow(2, eatChain);
+        eatChain++;
+        score += pts;
+        popups.push({ x: gp.x, y: gp.y, text: String(pts), ttl: 0.9 });
+        setHud();
+      } else {
+        killPlayer();
+        return;
+      }
+    }
+  }
+}
+
+function killPlayer() {
+  lives--;
+  setHud();
+  phase = 'dying';
+  phaseTimer = 1.3;
+}
+
+function resetPositions() {
+  gameTime = 0;
+  frightUntil = 0;
+  eatChain = 0;
+  popups = [];
+  player = makeEntity(PLAYER_START.x, PLAYER_START.y);
+  player.next = null;
+  ghosts = GHOST_DEFS.map((d, i) => {
+    const g = makeEntity(d.start.x, d.start.y);
+    g.index = i;
+    g.color = d.color;
+    g.state = d.state;
+    g.release = d.release;
+    g.scatter = d.scatter;
+    g.frightened = false;
+    return g;
+  });
+}
+
+function initLevel() {
+  buildGrid();
+  resetPositions();
+  phase = 'ready';
+  phaseTimer = 1.6;
+}
+
+function setHud() {
+  if (score > best) {
+    best = score;
+    localStorage.setItem('chomper-best', best);
+  }
+  scoreEl.textContent = score;
+  livesEl.textContent = Math.max(0, lives);
+  levelEl.textContent = level;
+  bestEl.textContent = best;
+}
+
+function afterDeath() {
+  if (lives <= 0) {
+    gameOver();
+  } else {
+    resetPositions();
+    phase = 'ready';
+    phaseTimer = 1.4;
+  }
+}
+
+function nextLevel() {
+  level++;
+  initLevel();
+  setHud();
+}
+
+function update(dt) {
+  if (phase === 'ready') { phaseTimer -= dt; if (phaseTimer <= 0) phase = 'play'; return; }
+  if (phase === 'dying') { phaseTimer -= dt; if (phaseTimer <= 0) afterDeath(); return; }
+  if (phase === 'levelclear') { phaseTimer -= dt; if (phaseTimer <= 0) nextLevel(); return; }
+  if (phase !== 'play') return;
+
+  gameTime += dt;
+  if (frightUntil && gameTime >= frightUntil) {
+    frightUntil = 0;
+    for (const g of ghosts) g.frightened = false;
+  }
+
+  if (player.moving && player.next && player.next.dx === -player.dx && player.next.dy === -player.dy) {
+    reverseEntity(player);
+  }
+  advance(player, PLAYER_SPEED * dt, choosePlayer, playerArrive);
+  for (const g of ghosts) updateGhost(g, dt);
+  for (const p of popups) p.ttl -= dt;
+  popups = popups.filter(p => p.ttl > 0);
+
+  checkCollisions();
+  if (phase === 'play' && dotsLeft <= 0) {
+    phase = 'levelclear';
+    phaseTimer = 1.5;
+  }
+}
+
+function neighborIsWall(x, y) {
+  if (y < 0 || y >= ROWS || x < 0 || x >= COLS) return true;
+  return grid[y][x] === '#';
+}
+
+function drawMaze(flash) {
+  const clock = performance.now() / 1000;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      const px = x * T, py = y * T;
+      if (t === '#') {
+        ctx.fillStyle = flash ? '#2a2f8a' : '#12164a';
+        ctx.fillRect(px, py, T, T);
+        ctx.strokeStyle = flash ? '#ffffff' : '#5b6cff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        if (!neighborIsWall(x, y - 1)) { ctx.moveTo(px, py + 1); ctx.lineTo(px + T, py + 1); }
+        if (!neighborIsWall(x, y + 1)) { ctx.moveTo(px, py + T - 1); ctx.lineTo(px + T, py + T - 1); }
+        if (!neighborIsWall(x - 1, y)) { ctx.moveTo(px + 1, py); ctx.lineTo(px + 1, py + T); }
+        if (!neighborIsWall(x + 1, y)) { ctx.moveTo(px + T - 1, py); ctx.lineTo(px + T - 1, py + T); }
+        ctx.stroke();
+      } else if (t === '.') {
+        ctx.fillStyle = '#ffe9a8';
+        ctx.beginPath();
+        ctx.arc(px + T / 2, py + T / 2, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (t === 'o') {
+        const pulse = 6 + Math.sin(clock * 6) * 1.5;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#2fd0ff';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(px + T / 2, py + T / 2, pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else if (t === 'D') {
+        ctx.strokeStyle = '#ff5c9e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(px, py + T / 2);
+        ctx.lineTo(px + T, py + T / 2);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function drawPlayer() {
+  const p = entityPos(player);
+  const cx = (p.x + 0.5) * T, cy = (p.y + 0.5) * T, r = T * 0.42;
+  const d = player.dir;
+  const angle = Math.atan2(d.dy, d.dx);
+  let mouth;
+  if (phase === 'dying') {
+    mouth = (1 - Math.max(0, phaseTimer) / 1.3) * Math.PI;
+  } else {
+    const chomp = player.moving || phase === 'play' ? Math.abs(Math.sin(performance.now() / 90)) : 0.3;
+    mouth = 0.06 * Math.PI + chomp * 0.28 * Math.PI;
+  }
+  const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  grad.addColorStop(0, '#2fd0ff');
+  grad.addColorStop(1, '#c026ff');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, r, angle + mouth, angle + Math.PI * 2 - mouth);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawGhost(g) {
+  const p = entityPos(g);
+  const bob = g.state === 'house' ? Math.sin(performance.now() / 200 + g.index) * 2 : 0;
+  const cx = (p.x + 0.5) * T, cy = (p.y + 0.5) * T + bob, r = T * 0.44;
+  const clock = performance.now() / 1000;
+
+  if (g.state !== 'eaten') {
+    const flashing = g.frightened && frightUntil - gameTime < 1.5 && Math.floor(clock * 6) % 2 === 0;
+    ctx.fillStyle = g.frightened ? (flashing ? '#ffffff' : '#3340ff') : g.color;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 1, r, Math.PI, 0);
+    ctx.lineTo(cx + r, cy + r);
+    const w = (2 * r) / 3;
+    for (let i = 0; i < 3; i++) {
+      ctx.lineTo(cx + r - i * w - w / 2, cy + r - 4);
+      ctx.lineTo(cx + r - (i + 1) * w, cy + r);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  if (g.frightened && g.state !== 'eaten') {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - 4.5, cy - 3, 2.4, 0, Math.PI * 2);
+    ctx.arc(cx + 4.5, cy - 3, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const ox = g.dir.dx * 1.8, oy = g.dir.dy * 1.8;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx - 5, cy - 3, 3.8, 0, Math.PI * 2);
+    ctx.arc(cx + 5, cy - 3, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0a0b16';
+    ctx.beginPath();
+    ctx.arc(cx - 5 + ox, cy - 3 + oy, 1.8, 0, Math.PI * 2);
+    ctx.arc(cx + 5 + ox, cy - 3 + oy, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0b16';
+  ctx.fillRect(0, 0, W, H);
+  drawMaze(phase === 'levelclear' && Math.floor(phaseTimer * 6) % 2 === 0);
+  if (phase !== 'dying') for (const g of ghosts) drawGhost(g);
+  drawPlayer();
+
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 13px -apple-system, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  for (const p of popups) ctx.fillText(p.text, (p.x + 0.5) * T, (p.y + 0.5) * T);
+
+  if (phase === 'ready') {
+    ctx.font = 'bold 20px -apple-system, sans-serif';
+    ctx.fillStyle = '#2fd0ff';
+    ctx.fillText('READY!', W / 2, 11.5 * T + 7);
+  }
+}
+
+function loop(t) {
+  if (!running) return;
+  const dt = Math.min(0.05, lastT ? (t - lastT) / 1000 : 0.016);
+  lastT = t;
+  update(dt);
+  draw();
+  if (!running) return;
+  animId = requestAnimationFrame(loop);
+}
+
+function gameOver() {
+  running = false;
+  cancelAnimationFrame(animId);
+  phase = 'over';
+  msg.classList.remove('hidden');
+  msg.innerHTML = `<h2>Game Over</h2><p>You scored <b>${score}</b> and reached level <b>${level}</b>. Best: <b>${best}</b></p>`;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Play Again';
+  btn.onclick = start;
+  msg.appendChild(btn);
+}
+
+function start() {
+  msg.classList.add('hidden');
+  score = 0; lives = 3; level = 1;
+  initLevel();
+  setHud();
+  running = true;
+  lastT = 0;
+  cancelAnimationFrame(animId);
+  animId = requestAnimationFrame(loop);
+}
+
+function setNext(d) { if (player) player.next = d; }
+
+const KEYMAP = { ArrowUp: 0, w: 0, W: 0, ArrowLeft: 1, a: 1, A: 1, ArrowDown: 2, s: 2, S: 2, ArrowRight: 3, d: 3, D: 3 };
+window.addEventListener('keydown', e => {
+  if (Object.prototype.hasOwnProperty.call(KEYMAP, e.key)) {
+    e.preventDefault();
+    setNext(DIRS[KEYMAP[e.key]]);
+  }
+});
+
+let swipe = null;
+canvas.addEventListener('pointerdown', e => { swipe = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('pointermove', e => {
+  if (!swipe) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+  if (Math.abs(dx) > Math.abs(dy)) setNext(dx > 0 ? DIRS[3] : DIRS[1]);
+  else setNext(dy > 0 ? DIRS[2] : DIRS[0]);
+  swipe = { x: e.clientX, y: e.clientY };
+});
+window.addEventListener('pointerup', () => { swipe = null; });
+window.addEventListener('pointercancel', () => { swipe = null; });
+
+document.getElementById('dpad').addEventListener('pointerdown', e => {
+  const b = e.target.closest('[data-dir]');
+  if (b) { e.preventDefault(); setNext(DIRS[Number(b.dataset.dir)]); }
+});
+
+startBtn.addEventListener('click', start);
+
+initLevel();
+draw();
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/nexus-chomper/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+</body>
+</html>

@@ -40,5 +40,11 @@
     "genre": "Action",
     "status": "Live",
     "slug": "boss-battle"
+  },
+  {
+    "title": "Nexus Chomper",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "nexus-chomper"
   }
 ]
