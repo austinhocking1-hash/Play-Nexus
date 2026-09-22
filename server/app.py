@@ -618,7 +618,8 @@ def claim_daily():
 
 # ---------- weekly prize ----------
 
-SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle']
+SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
+                  'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge']
 
 
 @app.get('/api/weekly')

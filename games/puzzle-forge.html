@@ -29,6 +29,8 @@
 </div>
 <p class="controls-hint">Click a tile next to the blank space to slide it</p>
 
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
 <script>
 const gridEl = document.getElementById('grid');
 const msg = document.getElementById('msg');
@@ -118,6 +120,7 @@ function tryMove(i) {
     setTimeout(() => {
       msg.classList.remove('hidden');
       msg.innerHTML = `<h2>Solved!</h2><p>You solved it in <b>${moves}</b> moves.</p>`;
+      NexusScore.submit('Puzzle Forge', Math.max(0, 1000 - moves * 10));
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = 'Play Again';

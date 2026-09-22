@@ -29,6 +29,8 @@
 </div>
 <p class="controls-hint">Controls: Space / Up Arrow / Tap to jump</p>
 
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
 <script>
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -148,6 +150,7 @@ function endGame() {
   btn.textContent = 'Sprint Again';
   btn.onclick = start;
   msg.appendChild(btn);
+  NexusScore.submit('Pixel Sprint', finalDist);
 }
 
 function start() {

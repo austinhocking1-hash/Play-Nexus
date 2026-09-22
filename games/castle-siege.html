@@ -30,6 +30,8 @@
 </div>
 <p class="controls-hint">Click enemies to destroy them before they reach the castle</p>
 
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
 <script>
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -166,6 +168,7 @@ function endGame() {
   btn.textContent = 'Defend Again';
   btn.onclick = start;
   msg.appendChild(btn);
+  NexusScore.submit('Castle Siege', finalScore);
 }
 
 function start() {

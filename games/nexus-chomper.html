@@ -124,6 +124,40 @@ let best = Number(localStorage.getItem('chomper-best') || 0);
 let running = false, phase = 'ready', phaseTimer = 0;
 let player, ghosts = [], gameTime = 0, frightUntil = 0, eatChain = 0, popups = [];
 let lastT = 0, animId;
+let shakeUntil = 0;
+let particles = [];
+
+let audioCtx = null;
+function playTone(freq, dur, type, vol) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (e) {}
+}
+
+function spawnBurst(tx, ty, color, count) {
+  const cx = (tx + 0.5) * T, cy = (ty + 0.5) * T;
+  for (let i = 0; i < count; i++) {
+    const a = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 40 + Math.random() * 60;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+      ttl: 0.4 + Math.random() * 0.3, life: 0.4 + Math.random() * 0.3,
+      color,
+    });
+  }
+}
 
 bestEl.textContent = best;
 
@@ -228,12 +262,16 @@ function playerArrive(e) {
     score += 10;
     dotsLeft--;
     setHud();
+    playTone(520, 0.04, 'square', 0.05);
+    spawnBurst(e.x, e.y, '#ffe9a8', 3);
   } else if (t === 'o') {
     grid[e.y][e.x] = ' ';
     score += 50;
     dotsLeft--;
     startFright();
     setHud();
+    playTone(220, 0.18, 'sawtooth', 0.08);
+    spawnBurst(e.x, e.y, '#2fd0ff', 10);
   }
 }
 
@@ -345,6 +383,8 @@ function checkCollisions() {
         score += pts;
         popups.push({ x: gp.x, y: gp.y, text: String(pts), ttl: 0.9 });
         setHud();
+        playTone(660, 0.15, 'square', 0.09);
+        spawnBurst(gp.x, gp.y, g.color, 14);
       } else {
         killPlayer();
         return;
@@ -358,6 +398,8 @@ function killPlayer() {
   setHud();
   phase = 'dying';
   phaseTimer = 1.3;
+  playTone(140, 0.5, 'sawtooth', 0.12);
+  shakeUntil = performance.now() + 400;
 }
 
 function resetPositions() {
@@ -414,6 +456,9 @@ function nextLevel() {
 }
 
 function update(dt) {
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; p.ttl -= dt; }
+  particles = particles.filter(p => p.ttl > 0);
+
   if (phase === 'ready') { phaseTimer -= dt; if (phaseTimer <= 0) phase = 'play'; return; }
   if (phase === 'dying') { phaseTimer -= dt; if (phaseTimer <= 0) afterDeath(); return; }
   if (phase === 'levelclear') { phaseTimer -= dt; if (phaseTimer <= 0) nextLevel(); return; }
@@ -554,11 +599,27 @@ function drawGhost(g) {
 }
 
 function draw() {
+  ctx.save();
+  const shakeLeft = shakeUntil - performance.now();
+  if (shakeLeft > 0) {
+    const mag = 4 * (shakeLeft / 400);
+    ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+  }
+
   ctx.fillStyle = '#0a0b16';
   ctx.fillRect(0, 0, W, H);
   drawMaze(phase === 'levelclear' && Math.floor(phaseTimer * 6) % 2 === 0);
   if (phase !== 'dying') for (const g of ghosts) drawGhost(g);
   drawPlayer();
+
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.ttl / p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   ctx.textAlign = 'center';
   ctx.font = 'bold 13px -apple-system, sans-serif';
@@ -570,6 +631,7 @@ function draw() {
     ctx.fillStyle = '#2fd0ff';
     ctx.fillText('READY!', W / 2, 11.5 * T + 7);
   }
+  ctx.restore();
 }
 
 function loop(t) {
