@@ -79,6 +79,21 @@
       </div>
       <button class="btn" id="weeklyEndBtn" style="margin-top:12px">End Week &amp; Award Winner</button>
       <p id="weeklyMsg" class="section-hint"></p>
+
+      <h2 style="margin-top:32px">Automatic weekly rotation</h2>
+      <p class="section-hint">When on, a week ends by itself after 7 days: the #1 player wins and gets a celebration, then the next prize from your queue starts on a random game. If the queue is empty, it uses "Mystery Prize" (+500 NexBucks). Rotation happens when someone visits the site.</p>
+      <label style="display:block;margin:12px 0"><input type="checkbox" id="weeklyAuto"> Auto-rotate weekly prizes</label>
+      <div class="form-grid">
+        <label>Queue a prize <input type="text" id="queuePrize" placeholder="Silver Trophy badge"></label>
+        <label>NexBucks bonus <input type="number" id="queueBonus" value="500" min="0"></label>
+        <button class="btn" id="queueAddBtn">Add to queue</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Up next</th><th>Bonus</th><th></th></tr></thead>
+          <tbody id="queueBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Dashboard -->

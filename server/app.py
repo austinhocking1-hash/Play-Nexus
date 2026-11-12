@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_db, close_db, init_db, now, DB_PATH
 import autofix
 import gamegen
+import engage
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -138,6 +139,8 @@ def user_public(u):
         'role': u['role'],
         'nexbucks': u['nexbucks'],
         'streak': u['streak'],
+        'plays': u['plays'],
+        'unseen_win': u['unseen_win'],
         'can_claim': u['last_claim'] != today_str(),
         'next_reward': daily_reward(next_streak(u)),
     }
@@ -565,9 +568,11 @@ def leaderboard_submit():
         return jsonify(error='"game" is required.'), 400
 
     db = get_db()
+    engage.ensure_weekly(db)
     existing = db.execute(
         'SELECT * FROM leaderboard WHERE user_id = ? AND game = ?', (user['id'], game)
     ).fetchone()
+    old_best = existing['score'] if existing else -1
     if existing:
         if score > existing['score']:
             db.execute('UPDATE leaderboard SET score = ? WHERE id = ?', (score, existing['id']))
@@ -597,7 +602,9 @@ def leaderboard_submit():
         db.execute('UPDATE users SET nexbucks = nexbucks + ?, earned_today = ?, earned_date = ? WHERE id = ?',
                    (earned, earned_today + earned, today_str(), user['id']))
         db.commit()
-    return jsonify(ok=True, earned=earned)
+    extra = engage.after_score(db, user, game, score, old_best)
+    return jsonify(ok=True, earned=earned + extra['daily_bonus'], daily_bonus=extra['daily_bonus'],
+                   badges=extra['badges'], new_best=score > old_best)
 
 
 @app.post('/api/rewards/daily')
@@ -613,7 +620,9 @@ def claim_daily():
     db.execute('UPDATE users SET nexbucks = nexbucks + ?, streak = ?, last_claim = ? WHERE id = ?',
                (reward, streak, today_str(), user['id']))
     db.commit()
-    return jsonify(reward=reward, streak=streak, nexbucks=user['nexbucks'] + reward)
+    badges = engage.award_streak_badges(db, user['id'], streak)
+    db.commit()
+    return jsonify(reward=reward, streak=streak, nexbucks=user['nexbucks'] + reward, badges=badges)
 
 
 # ---------- weekly prize ----------
@@ -625,6 +634,7 @@ SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Run
 @app.get('/api/weekly')
 def weekly_info():
     db = get_db()
+    engage.ensure_weekly(db)
     ev = db.execute("SELECT * FROM weekly_events WHERE status = 'active' ORDER BY id DESC LIMIT 1").fetchone()
     current = None
     if ev:
@@ -669,15 +679,11 @@ def weekly_end():
     ev = db.execute("SELECT * FROM weekly_events WHERE status = 'active' ORDER BY id DESC LIMIT 1").fetchone()
     if not ev:
         return jsonify(error='No active weekly event'), 400
-    top = db.execute('SELECT * FROM weekly_scores WHERE event_id = ? ORDER BY score DESC LIMIT 1',
-                     (ev['id'],)).fetchone()
-    name, score = (top['player_name'], top['score']) if top else ('No winner', 0)
-    if top and ev['bonus_nexbucks']:
-        db.execute('UPDATE users SET nexbucks = nexbucks + ? WHERE id = ?', (ev['bonus_nexbucks'], top['user_id']))
-    db.execute("UPDATE weekly_events SET status = 'ended', ended_at = ?, winner_name = ?, winner_score = ? WHERE id = ?",
-               (now(), name, score, ev['id']))
-    db.commit()
-    return jsonify(ok=True, winner=name, score=score, prize=ev['prize'])
+    result = engage.end_event(db, ev)
+    return jsonify(ok=True, **result)
+
+
+engage.register(app, get_db, require_login, require_admin)
 
 
 # ---------- shop redemption (real balance, tied to a real account) ----------

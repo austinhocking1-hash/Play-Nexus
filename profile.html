@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player Profile — Play Nexus</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .pf { max-width: 720px; margin: 0 auto; padding: 40px 16px; }
+  .pf h1 { margin: 0 0 4px; }
+  .pf .meta { color: var(--text-muted); margin-bottom: 20px; }
+  .pf h2 { margin: 32px 0 12px; font-size: 1.2rem; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat b { display: block; font-size: 1.4rem; }
+  .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .badge { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .badge.locked { opacity: .35; filter: grayscale(1); }
+  .badge .e { font-size: 1.6rem; }
+  .badge small { display: block; color: var(--text-muted); }
+  .row { display: flex; justify-content: space-between; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; }
+  .row a { color: inherit; }
+  .follow-form { display: flex; gap: 8px; margin-top: 10px; }
+  .follow-form input { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="container nav">
+    <a href="/" class="logo">Play<span>Nexus</span></a>
+    <nav><ul><li><a href="/">&larr; Back to Home</a></li></ul></nav>
+  </div>
+</header>
+<main class="pf" id="pf"><p>Loading…</p></main>
+<script src="/config.js"></script>
+<script>
+const API = window.PLAY_NEXUS_API_BASE || '';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, { credentials: 'include', headers: {'Content-Type': 'application/json'}, ...opts });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Request failed');
+  return d;
+}
+async function load() {
+  const root = document.getElementById('pf');
+  let name = new URLSearchParams(location.search).get('u');
+  try {
+    if (!name) {
+      const me = await api('/api/auth/me');
+      if (!me.user) { root.innerHTML = '<h1>Profile</h1><p class="meta">Sign in on the <a href="/">home page</a> to see your profile.</p>'; return; }
+      name = me.user.username;
+    }
+    const [p, all] = await Promise.all([api('/api/profile/' + encodeURIComponent(name)), api('/api/badges')]);
+    const have = new Set(p.badges.map(b => b.id));
+    root.innerHTML = `
+      <h1>${esc(p.username)}${p.is_me ? ' (you)' : ''}</h1>
+      <div class="meta">Joined ${esc(p.joined)} &middot; ${p.followers} follower${p.followers === 1 ? '' : 's'} &middot; following ${p.following}</div>
+      ${!p.is_me ? `<button class="btn btn-primary" id="fbtn">${p.is_following ? 'Unfollow' : 'Follow'}</button>` : ''}
+      <div class="stats" style="margin-top:16px">
+        <div class="stat"><b>${p.plays}</b>Games played</div>
+        <div class="stat"><b>${p.streak}</b>Day streak</div>
+        <div class="stat"><b>${p.weekly_wins}</b>Weekly wins</div>
+        <div class="stat"><b>${p.badges.length}/${all.badges.length}</b>Badges</div>
+      </div>
+      <h2>Badges</h2>
+      <div class="badges">${all.badges.map(b => `<div class="badge ${have.has(b.id) ? '' : 'locked'}"><span class="e">${b.emoji}</span> <b>${esc(b.name)}</b><small>${esc(b.desc)}</small></div>`).join('')}</div>
+      <h2>Best scores</h2>
+      ${p.scores.length ? p.scores.map(s => `<div class="row"><span>${esc(s.game)}</span><b>${Number(s.score).toLocaleString()}</b></div>`).join('') : '<p class="meta">No scores yet.</p>'}
+      ${p.is_me ? `<h2>Friends</h2>
+        ${p.friends.length ? p.friends.map(f => `<div class="row"><a href="/profile?u=${encodeURIComponent(f.username)}">${esc(f.username)}</a><b>${Number(f.total).toLocaleString()} total pts</b></div>`).join('') : '<p class="meta">Follow players to see them here and get notified when they beat your scores.</p>'}
+        <div class="follow-form"><input id="fname" placeholder="Username to follow"><button class="btn btn-secondary" id="fadd">Follow</button></div>
+        <p class="meta" id="fmsg"></p>` : ''}`;
+    const fbtn = document.getElementById('fbtn');
+    if (fbtn) fbtn.onclick = async () => {
+      try { await api(p.is_following ? '/api/unfollow' : '/api/follow', { method: 'POST', body: JSON.stringify({ username: p.username }) }); load(); }
+      catch (e) { alert(e.message.includes('Not signed in') ? 'Sign in on the home page first.' : e.message); }
+    };
+    const fadd = document.getElementById('fadd');
+    if (fadd) fadd.onclick = async () => {
+      try { await api('/api/follow', { method: 'POST', body: JSON.stringify({ username: document.getElementById('fname').value }) }); load(); }
+      catch (e) { document.getElementById('fmsg').textContent = e.message; }
+    };
+  } catch (e) { root.innerHTML = '<h1>Profile</h1><p class="meta">' + esc(e.message) + '</p>'; }
+}
+load();
+</script>
+</body>
+</html>

@@ -95,11 +95,44 @@ signupForm.addEventListener('submit', async e => {
   }
 });
 
+let extrasFor = null;
+function toast(html, ms = 6000) {
+  let box = document.getElementById('toastBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'toastBox';
+    box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9000;display:grid;gap:8px;max-width:320px';
+    document.body.appendChild(box);
+  }
+  const t = document.createElement('div');
+  t.style.cssText = 'background:#1e2142;color:#fff;border:1px solid #7c5cff;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+  t.innerHTML = html;
+  box.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+
+async function showAccountExtras() {
+  if (!currentUser || extrasFor === currentUser.id) return;
+  extrasFor = currentUser.id;
+  if (currentUser.unseen_win) {
+    const [prize, game] = currentUser.unseen_win.split('|');
+    if (window.NexusScore) NexusScore.confetti();
+    toast(`&#127942; <b>You won the weekly prize!</b><br>${escapeHtml(prize)} (${escapeHtml(game || '')}). Check your NexBucks!`, 12000);
+    api('/api/ack-win', { method: 'POST' }).catch(() => {});
+  }
+  try {
+    const { items } = await api('/api/notifications');
+    items.slice(0, 3).forEach(n => toast('&#128276; ' + escapeHtml(n.text)));
+    if (items.length) api('/api/notifications/seen', { method: 'POST' }).catch(() => {});
+  } catch (e) {}
+}
+
 function renderAccount() {
   renderDailyBanner();
+  showAccountExtras();
   if (currentUser) {
     navAccount.innerHTML = `
-      <span class="account-name">${escapeHtml(currentUser.username)}</span>
+      <a class="account-name" href="/profile" style="color:inherit;text-decoration:none" title="View your profile">${escapeHtml(currentUser.username)}</a>
       <span class="account-balance">🪙 ${currentUser.nexbucks.toLocaleString()}</span>
       <button class="btn btn-secondary nav-cta" id="signOutBtn">Sign Out</button>
     `;
@@ -140,6 +173,7 @@ function renderDailyBanner() {
         currentUser.can_claim = false;
         currentUser.next_reward = Math.min(50 + 25 * d.streak, 250);
         renderAccount();
+        (d.badges || []).forEach(x => toast(`${x.emoji} Badge unlocked: <b>${escapeHtml(x.name)}</b>`));
         b.textContent = `+${d.reward} NexBucks claimed! Streak: ${d.streak} day${d.streak > 1 ? 's' : ''}. Come back tomorrow for +${currentUser.next_reward}!`;
       } catch (e) { b.textContent = e.message; }
     };
@@ -225,7 +259,7 @@ async function renderLeaderboard() {
       return `
         <tr>
           <td><span class="rank ${rankClass}">${i + 1}</span></td>
-          <td>${escapeHtml(e.player_name)}</td>
+          <td><a href="/profile?u=${encodeURIComponent(e.player_name)}" style="color:inherit">${escapeHtml(e.player_name)}</a></td>
           <td>${escapeHtml(e.game)}</td>
           <td>${Number(e.score).toLocaleString()}</td>
         </tr>`;
@@ -262,7 +296,7 @@ async function renderLeaderboard() {
     if (current) {
       lede.innerHTML = `This week: play <b>${escapeHtml(current.game)}</b>. The #1 score wins <b>${escapeHtml(current.prize)}</b>${current.bonus_nexbucks ? ` + ${current.bonus_nexbucks} NexBucks` : ''}!`;
       body.innerHTML = current.top.length
-        ? current.top.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.player_name)}</td><td>${r.score.toLocaleString()}</td></tr>`).join('')
+        ? current.top.map((r, i) => `<tr><td>${i + 1}</td><td><a href="/profile?u=${encodeURIComponent(r.player_name)}" style="color:inherit">${escapeHtml(r.player_name)}</a></td><td>${r.score.toLocaleString()}</td></tr>`).join('')
         : '<tr><td colspan="3">No scores yet. Be the first!</td></tr>';
     } else {
       lede.textContent = 'The next weekly prize is coming soon.';
@@ -271,5 +305,21 @@ async function renderLeaderboard() {
     document.getElementById('weeklyPast').innerHTML = past.length
       ? 'Past winners: ' + past.map(p => `${escapeHtml(p.winner_name)} (${escapeHtml(p.game)}, ${escapeHtml(p.prize)})`).join(' &middot; ')
       : '';
+  } catch (e) {}
+})();
+
+
+// ---------- Daily challenge ----------
+(async function loadDailyChallenge() {
+  try {
+    const ch = await api('/api/daily-challenge');
+    const grid = document.getElementById('gameGrid');
+    if (!grid) return;
+    const card = document.createElement('div');
+    card.style.cssText = 'margin:0 0 24px;padding:16px 20px;border-radius:14px;border:1px solid #7c5cff;background:linear-gradient(90deg,rgba(124,92,255,.18),rgba(255,92,158,.18));text-align:center';
+    card.innerHTML = ch.done
+      ? `&#127919; <b>Daily Challenge complete!</b> Come back tomorrow for a new one.`
+      : `&#127919; <b>Daily Challenge:</b> score <b>${ch.target.toLocaleString()}</b>+ in <b>${escapeHtml(ch.game)}</b> for <b>+${ch.bonus} NexBucks</b>`;
+    grid.parentNode.insertBefore(card, grid);
   } catch (e) {}
 })();

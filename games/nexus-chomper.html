@@ -53,6 +53,7 @@
   <span>Score: <b id="scoreEl">0</b></span>
   <span>Lives: <b id="livesEl">3</b></span>
   <span>Level: <b id="levelEl">1</b></span>
+  <span>Combo: <b id="comboEl">x1</b></span>
   <span>Best: <b id="bestEl">0</b></span>
 </div>
 <p class="controls-hint">Move: arrow keys / WASD / swipe &middot; Power pellets let you eat the bots</p>
@@ -125,6 +126,8 @@ let running = false, phase = 'ready', phaseTimer = 0;
 let player, ghosts = [], gameTime = 0, frightUntil = 0, eatChain = 0, popups = [];
 let lastT = 0, animId;
 let shakeUntil = 0;
+let dotCombo = 0;
+function comboMult() { return Math.min(4, 1 + Math.floor(dotCombo / 25)); }
 let particles = [];
 
 let audioCtx = null;
@@ -259,9 +262,15 @@ function playerArrive(e) {
   const t = tileAt(e.x, e.y);
   if (t === '.') {
     grid[e.y][e.x] = ' ';
-    score += 10;
+    const before = comboMult();
+    dotCombo++;
+    score += 10 * comboMult();
     dotsLeft--;
     setHud();
+    if (comboMult() > before) {
+      playTone(880, 0.12, 'square', 0.07);
+      popups.push({ x: e.x, y: e.y, text: 'COMBO x' + comboMult(), ttl: 1 });
+    }
     playTone(520, 0.04, 'square', 0.05);
     spawnBurst(e.x, e.y, '#ffe9a8', 3);
   } else if (t === 'o') {
@@ -398,6 +407,7 @@ function killPlayer() {
   setHud();
   phase = 'dying';
   phaseTimer = 1.3;
+  dotCombo = 0;
   playTone(140, 0.5, 'sawtooth', 0.12);
   shakeUntil = performance.now() + 400;
 }
@@ -436,6 +446,7 @@ function setHud() {
   scoreEl.textContent = score;
   livesEl.textContent = Math.max(0, lives);
   levelEl.textContent = level;
+  document.getElementById('comboEl').textContent = 'x' + comboMult();
   bestEl.textContent = best;
 }
 
@@ -660,7 +671,7 @@ function gameOver() {
 
 function start() {
   msg.classList.add('hidden');
-  score = 0; lives = 3; level = 1;
+  score = 0; lives = 3; level = 1; dotCombo = 0;
   initLevel();
   setHud();
   running = true;

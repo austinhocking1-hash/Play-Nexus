@@ -80,6 +80,44 @@ CREATE TABLE IF NOT EXISTS weekly_scores (
     PRIMARY KEY (event_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_badges (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge TEXT NOT NULL,
+    earned_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, badge)
+);
+
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    followed_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (follower_id, followed_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    seen INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS prize_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    prize TEXT NOT NULL,
+    bonus INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS daily_challenge_claims (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    PRIMARY KEY (user_id, day)
+);
+
 CREATE TABLE IF NOT EXISTS suggestions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL DEFAULT '',
@@ -157,7 +195,8 @@ def init_db(app):
         db = sqlite3.connect(DB_PATH)
         db.executescript(SCHEMA)
         for col in ("streak INTEGER NOT NULL DEFAULT 0", "last_claim TEXT NOT NULL DEFAULT ''",
-                    "earned_today INTEGER NOT NULL DEFAULT 0", "earned_date TEXT NOT NULL DEFAULT ''"):
+                    "earned_today INTEGER NOT NULL DEFAULT 0", "earned_date TEXT NOT NULL DEFAULT ''",
+                    "plays INTEGER NOT NULL DEFAULT 0", "unseen_win TEXT NOT NULL DEFAULT ''"):
             try:
                 db.execute('ALTER TABLE users ADD COLUMN ' + col)
             except sqlite3.OperationalError:

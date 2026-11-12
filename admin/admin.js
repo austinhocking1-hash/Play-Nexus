@@ -456,7 +456,36 @@ async function renderWeekly() {
   } catch (e) { cur.textContent = 'Could not load.'; }
 }
 
+async function renderQueue() {
+  const body = document.getElementById('queueBody');
+  try {
+    const { items, auto } = await api('/api/admin/prizes');
+    document.getElementById('weeklyAuto').checked = auto;
+    body.innerHTML = items.length
+      ? items.map(i => `<tr><td>${escapeHtml(i.prize)}</td><td>${i.bonus}</td><td><button class="btn" data-delq="${i.id}">Remove</button></td></tr>`).join('')
+      : '<tr><td colspan="3">Queue is empty (Mystery Prize will be used).</td></tr>';
+    body.querySelectorAll('[data-delq]').forEach(b => b.onclick = async () => {
+      await api('/api/admin/prizes/' + b.dataset.delq, { method: 'DELETE' });
+      renderQueue();
+    });
+  } catch (e) { body.innerHTML = '<tr><td colspan="3">Could not load queue.</td></tr>'; }
+}
+
 function setupWeekly() {
+  document.getElementById('weeklyAuto').onchange = async (e) => {
+    await api('/api/admin/weekly/auto', { method: 'POST', body: JSON.stringify({ enabled: e.target.checked }) });
+  };
+  document.getElementById('queueAddBtn').onclick = async () => {
+    try {
+      await api('/api/admin/prizes', { method: 'POST', body: JSON.stringify({
+        prize: document.getElementById('queuePrize').value,
+        bonus: document.getElementById('queueBonus').value,
+      })});
+      document.getElementById('queuePrize').value = '';
+    } catch (e) { document.getElementById('weeklyMsg').textContent = e.message; }
+    renderQueue();
+  };
+  renderQueue();
   const msg = document.getElementById('weeklyMsg');
   document.getElementById('weeklyStartBtn').onclick = async () => {
     try {
