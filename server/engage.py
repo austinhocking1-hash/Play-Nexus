@@ -197,10 +197,13 @@ def register(app, get_db, require_login, require_admin):
         ua = request.headers.get('User-Agent', '')
         if not ua or any(w in ua.lower() for w in ('bot', 'crawl', 'spider', 'slurp', 'preview')):
             return ('', 204)
-        path = str((request.get_json(silent=True, force=True) or {}).get('path') or '/')[:100]
-        ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+        body = request.get_json(silent=True, force=True) or {}
+        path = str(body.get('path') or '/')[:100]
+        cid = str(body.get('id') or '')[:64]
+        if not cid:
+            cid = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip() + ua
         day = _today()
-        visitor = hashlib.sha256(f'{day}|{ip}|{ua}'.encode()).hexdigest()[:16]
+        visitor = hashlib.sha256(f'{app.secret_key}|{cid}'.encode()).hexdigest()[:16]
         db = get_db()
         recent = db.execute('SELECT COUNT(*) FROM page_views WHERE day = ? AND visitor = ?', (day, visitor)).fetchone()[0]
         if recent < 200:

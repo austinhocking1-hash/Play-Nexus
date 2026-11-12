@@ -421,6 +421,7 @@ async function renderVisitors() {
   try {
     const v = await api('/api/admin/visitors');
     document.getElementById('visToday').textContent = v.today.unique;
+    document.getElementById('visUnique').textContent = v.total.unique;
     document.getElementById('visWeek').textContent = v.week.views;
     document.getElementById('visViews').textContent = v.total.views;
     const max = Math.max(1, ...v.days.map(d => d.views));
