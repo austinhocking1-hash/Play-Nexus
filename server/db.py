@@ -80,6 +80,14 @@ CREATE TABLE IF NOT EXISTS weekly_scores (
     PRIMARY KEY (event_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS page_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    day TEXT NOT NULL,
+    visitor TEXT NOT NULL,
+    path TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_page_views_day ON page_views(day);
+
 CREATE TABLE IF NOT EXISTS ratings (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     slug TEXT NOT NULL,

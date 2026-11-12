@@ -190,6 +190,48 @@ def ensure_weekly(db):
 
 def register(app, get_db, require_login, require_admin):
     import threading
+    import hashlib
+
+    @app.post('/api/track')
+    def track():
+        ua = request.headers.get('User-Agent', '')
+        if not ua or any(w in ua.lower() for w in ('bot', 'crawl', 'spider', 'slurp', 'preview')):
+            return ('', 204)
+        path = str((request.get_json(silent=True, force=True) or {}).get('path') or '/')[:100]
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+        day = _today()
+        visitor = hashlib.sha256(f'{day}|{ip}|{ua}'.encode()).hexdigest()[:16]
+        db = get_db()
+        recent = db.execute('SELECT COUNT(*) FROM page_views WHERE day = ? AND visitor = ?', (day, visitor)).fetchone()[0]
+        if recent < 200:
+            db.execute('INSERT INTO page_views (day, visitor, path) VALUES (?, ?, ?)', (day, visitor, path))
+            db.commit()
+        return ('', 204)
+
+    @app.get('/api/admin/visitors')
+    def admin_visitors():
+        _, err = require_admin()
+        if err:
+            return err
+        db = get_db()
+        today, week_ago = _today(), _today(-6)
+
+        def agg(where='', args=()):
+            r = db.execute(f'SELECT COUNT(*), COUNT(DISTINCT visitor) FROM page_views {where}', args).fetchone()
+            return {'views': r[0], 'unique': r[1]}
+        rows = {r['day']: r for r in db.execute(
+            'SELECT day, COUNT(*) AS views, COUNT(DISTINCT visitor) AS uniq FROM page_views '
+            'WHERE day >= ? GROUP BY day', (_today(-13),))}
+        days = []
+        for i in range(13, -1, -1):
+            d = _today(-i)
+            days.append({'day': d, 'views': rows[d]['views'] if d in rows else 0,
+                         'unique': rows[d]['uniq'] if d in rows else 0})
+        pages = [dict(r) for r in db.execute(
+            'SELECT path, COUNT(*) AS views FROM page_views GROUP BY path ORDER BY views DESC LIMIT 8')]
+        # unique across days is approximate: visitors are hashed per day
+        return jsonify(today=agg('WHERE day = ?', (today,)), week=agg('WHERE day >= ?', (week_ago,)),
+                       total=agg(), days=days, pages=pages)
 
     @app.post('/api/ratings')
     def rate_game():

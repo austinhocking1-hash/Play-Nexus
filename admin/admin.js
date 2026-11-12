@@ -417,6 +417,21 @@ async function updateStats() {
   document.getElementById('statPlayers').textContent = stats.players;
 }
 
+async function renderVisitors() {
+  try {
+    const v = await api('/api/admin/visitors');
+    document.getElementById('visToday').textContent = v.today.unique;
+    document.getElementById('visWeek').textContent = v.week.views;
+    document.getElementById('visViews').textContent = v.total.views;
+    const max = Math.max(1, ...v.days.map(d => d.views));
+    document.getElementById('visChart').innerHTML = v.days.map(d =>
+      `<div title="${d.day}: ${d.views} views, ${d.unique} visitors" style="flex:1;background:#7c5cff;border-radius:4px 4px 0 0;height:${Math.max(3, Math.round(d.views / max * 100))}%"></div>`).join('');
+    document.getElementById('visPages').innerHTML = v.pages.length
+      ? v.pages.map(p => `<tr><td>${escapeHtml(p.path)}</td><td>${p.views}</td></tr>`).join('')
+      : '<tr><td colspan="2">No visits recorded yet.</td></tr>';
+  } catch (e) {}
+}
+
 async function checkHealth() {
   const dot = document.querySelector('#statusPill .status-dot');
   const text = document.getElementById('statusText');
@@ -532,6 +547,7 @@ function renderAll() {
   checkHealth();
   renderSuggestions();
   renderRatings();
+  renderVisitors();
   if (initialized) {
     updateStats();
     return;
