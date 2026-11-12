@@ -32,6 +32,7 @@ BADGES = {
     'sharpshooter': ('Sharpshooter', '⚽', 'Win a Penalty Shootout with 450+ points'),
     'daily_challenger': ('Challenger', '🎯', 'Beat a daily challenge'),
     'social': ('Friendly', '🤝', 'Follow another player'),
+    'critic': ('Critic', '⭐', 'Rate 3 different games'),
     'weekly_champ': ('Weekly Champion', '🏆', 'Win the weekly prize'),
 }
 
@@ -188,6 +189,89 @@ def ensure_weekly(db):
 # ---------- routes ----------
 
 def register(app, get_db, require_login, require_admin):
+    import threading
+
+    @app.post('/api/ratings')
+    def rate_game():
+        user, err = require_login()
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        slug = str(data.get('slug') or '').strip()
+        comment = str(data.get('comment') or '').strip()[:500]
+        try:
+            stars = int(data.get('stars'))
+        except (TypeError, ValueError):
+            return jsonify(error='Pick 1 to 5 stars'), 400
+        if not 1 <= stars <= 5:
+            return jsonify(error='Pick 1 to 5 stars'), 400
+        db = get_db()
+        if not db.execute('SELECT 1 FROM games WHERE slug = ?', (slug,)).fetchone():
+            return jsonify(error='Game not found'), 404
+        first = not db.execute('SELECT 1 FROM ratings WHERE user_id = ? AND slug = ?', (user['id'], slug)).fetchone()
+        db.execute('INSERT INTO ratings (user_id, slug, stars, comment, created_at) VALUES (?, ?, ?, ?, ?) '
+                   'ON CONFLICT(user_id, slug) DO UPDATE SET stars = excluded.stars, '
+                   'comment = excluded.comment, created_at = excluded.created_at',
+                   (user['id'], slug, stars, comment, datetime.now(timezone.utc).isoformat()))
+        reward, badges = 0, []
+        if first:
+            reward = 20
+            db.execute('UPDATE users SET nexbucks = nexbucks + ? WHERE id = ?', (reward, user['id']))
+            n = db.execute('SELECT COUNT(*) FROM ratings WHERE user_id = ?', (user['id'],)).fetchone()[0]
+            if n >= 3:
+                b = award(db, user['id'], 'critic')
+                badges = [b] if b else []
+        db.commit()
+        return jsonify(ok=True, reward=reward, badges=badges)
+
+    @app.get('/api/ratings/summary')
+    def ratings_summary():
+        rows = get_db().execute('SELECT slug, ROUND(AVG(stars), 1) AS avg, COUNT(*) AS count '
+                                'FROM ratings GROUP BY slug').fetchall()
+        return jsonify(items={r['slug']: {'avg': r['avg'], 'count': r['count']} for r in rows})
+
+    @app.get('/api/ratings/<slug>')
+    def ratings_for(slug):
+        db = get_db()
+        rows = db.execute('SELECT r.stars, r.comment, r.created_at, u.username FROM ratings r '
+                          'JOIN users u ON u.id = r.user_id WHERE r.slug = ? ORDER BY r.created_at DESC LIMIT 20',
+                          (slug,)).fetchall()
+        mine = None
+        from flask import session
+        if session.get('user_id'):
+            m = db.execute('SELECT stars, comment FROM ratings WHERE user_id = ? AND slug = ?',
+                           (session['user_id'], slug)).fetchone()
+            mine = dict(m) if m else None
+        return jsonify(items=[dict(r) for r in rows], mine=mine)
+
+    @app.get('/api/admin/ratings')
+    def admin_ratings():
+        _, err = require_admin()
+        if err:
+            return err
+        db = get_db()
+        games = db.execute('SELECT g.title, g.slug, ROUND(AVG(r.stars), 2) AS avg, COUNT(r.stars) AS count '
+                           'FROM games g LEFT JOIN ratings r ON r.slug = g.slug GROUP BY g.slug '
+                           'ORDER BY avg DESC').fetchall()
+        recent = db.execute('SELECT r.slug, r.stars, r.comment, r.created_at, u.username FROM ratings r '
+                            'JOIN users u ON u.id = r.user_id ORDER BY r.created_at DESC LIMIT 50').fetchall()
+        return jsonify(games=[dict(g) for g in games], recent=[dict(r) for r in recent])
+
+    @app.post('/api/admin/ratings/<slug>/improve')
+    def improve_from_ratings(slug):
+        _, err = require_admin()
+        if err:
+            return err
+        import autofix
+        rows = get_db().execute('SELECT stars, comment FROM ratings WHERE slug = ? AND comment != \'\' '
+                                'ORDER BY created_at DESC LIMIT 15', (slug,)).fetchall()
+        if not rows:
+            return jsonify(error='No written feedback for this game yet'), 400
+        fb = '; '.join(f"{r['stars']}/5: {r['comment']}" for r in rows)
+        threading.Thread(target=autofix.fix_game_file, daemon=True, args=(
+            slug, 'Player feedback to improve the game (fix bugs and make it more fun, keep it playable): ' + fb,
+            '')).start()
+        return jsonify(ok=True), 202
     @app.get('/api/daily-challenge')
     def daily_challenge_route():
         ch = daily_challenge()

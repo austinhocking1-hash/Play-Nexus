@@ -509,10 +509,29 @@ function setupWeekly() {
   renderWeekly();
 }
 
+async function renderRatings() {
+  const gb = document.getElementById('ratingsGamesBody'), rb = document.getElementById('ratingsRecentBody');
+  try {
+    const { games, recent } = await api('/api/admin/ratings');
+    gb.innerHTML = games.map(g => `<tr><td>${escapeHtml(g.title)}</td><td>${g.count ? '★ ' + g.avg : '-'}</td><td>${g.count}</td>
+      <td>${g.count ? `<button class="btn" data-improve="${escapeHtml(g.slug)}">Improve with AI</button>` : ''}</td></tr>`).join('');
+    rb.innerHTML = recent.length
+      ? recent.map(r => `<tr><td>${escapeHtml(r.slug)}</td><td>${escapeHtml(r.username)}</td><td>${'★'.repeat(r.stars)}</td><td>${escapeHtml(r.comment || '')}</td></tr>`).join('')
+      : '<tr><td colspan="4">No reviews yet.</td></tr>';
+    gb.querySelectorAll('[data-improve]').forEach(b => b.onclick = async () => {
+      if (!confirm('Send this game\'s feedback to the AI to rewrite and push the game?')) return;
+      try { await api('/api/admin/ratings/' + b.dataset.improve + '/improve', { method: 'POST' });
+        document.getElementById('ratingsMsg').textContent = 'AI is working on it. Check GitHub commits in a few minutes.';
+      } catch (e) { document.getElementById('ratingsMsg').textContent = e.message; }
+    });
+  } catch (e) { gb.innerHTML = '<tr><td colspan="4">Could not load ratings.</td></tr>'; }
+}
+
 let initialized = false;
 function renderAll() {
   checkHealth();
   renderSuggestions();
+  renderRatings();
   if (initialized) {
     updateStats();
     return;

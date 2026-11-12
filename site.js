@@ -188,12 +188,14 @@ async function renderGames() {
   if (!grid) return;
   try {
     const { items } = await api('/api/games');
+    let sum = {};
+    try { sum = (await api('/api/ratings/summary')).items; } catch (e) {}
     const live = items.filter(g => g.status === 'Live');
     grid.innerHTML = live.map((g, i) => `
       <article class="game-card">
         <div class="game-thumb thumb-${(i % 4) + 1}"></div>
         <h3>${escapeHtml(g.title)}</h3>
-        <p>${escapeHtml(g.genre)} game, live on Play Nexus.</p>
+        <p>${escapeHtml(g.genre)} game &middot; ${sum[g.slug] ? `<a href="/ratings" style="color:#ffd166;text-decoration:none">&#9733; ${sum[g.slug].avg} (${sum[g.slug].count})</a>` : '<a href="/ratings" style="color:inherit">Be the first to rate</a>'}</p>
         <a href="games/${encodeURIComponent(g.slug)}.html" class="btn btn-small">Play</a>
       </article>`).join('') || '<p class="loading-note">No games listed yet.</p>';
   } catch {

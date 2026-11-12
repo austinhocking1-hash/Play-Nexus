@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ratings Center — Play Nexus</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .rc { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  .rc h1 { margin: 0 0 6px; } .rc p.lede { color: var(--text-muted); }
+  .gcard { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin: 14px 0; }
+  .gcard h3 { margin: 0; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .avg { color: #ffd166; font-weight: 700; }
+  .stars { font-size: 1.8rem; cursor: pointer; user-select: none; letter-spacing: 2px; }
+  .stars span { color: #444a78; } .stars span.on { color: #ffd166; }
+  .gcard textarea { width: 100%; min-height: 70px; margin: 8px 0; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
+  .rev { border-top: 1px solid var(--border); padding: 8px 0; color: var(--text-muted); font-size: .95rem; }
+  .rev b { color: var(--text); }
+  .note { min-height: 1.3em; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="container nav">
+    <a href="/" class="logo">Play<span>Nexus</span></a>
+    <nav><ul><li><a href="/">&larr; Back to Home</a></li></ul></nav>
+  </div>
+</header>
+<main class="rc">
+  <h1>&#11088; Ratings Center</h1>
+  <p class="lede">Rate the games you've played. Your feedback goes straight to the admin and helps improve each game. Your first rating of each game earns +20 NexBucks.</p>
+  <div id="list"><p>Loading…</p></div>
+</main>
+<script src="/config.js"></script>
+<script>
+const API = window.PLAY_NEXUS_API_BASE || '';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, { credentials: 'include', headers: {'Content-Type': 'application/json'}, ...opts });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Request failed');
+  return d;
+}
+const starRow = n => [1,2,3,4,5].map(i => `<span data-s="${i}" class="${i <= n ? 'on' : ''}">&#9733;</span>`).join('');
+async function load() {
+  const list = document.getElementById('list');
+  try {
+    const [{ items: games }, { items: sum }] = await Promise.all([api('/api/games'), api('/api/ratings/summary')]);
+    const live = games.filter(g => g.status === 'Live' && g.slug);
+    const details = await Promise.all(live.map(g => api('/api/ratings/' + encodeURIComponent(g.slug))));
+    list.innerHTML = live.map((g, i) => {
+      const s = sum[g.slug], d = details[i], mine = d.mine;
+      return `<div class="gcard" data-slug="${esc(g.slug)}" data-stars="${mine ? mine.stars : 0}">
+        <h3><span>${esc(g.title)}</span><span class="avg">${s ? '&#9733; ' + s.avg + ' (' + s.count + ')' : 'No ratings yet'}</span></h3>
+        <div class="stars">${starRow(mine ? mine.stars : 0)}</div>
+        <textarea maxlength="500" placeholder="What did you like or dislike? Any bugs? (optional)">${mine ? esc(mine.comment) : ''}</textarea>
+        <button class="btn btn-primary" data-send>${mine ? 'Update rating' : 'Submit rating'}</button>
+        <div class="note"></div>
+        ${d.items.filter(r => r.comment).slice(0, 3).map(r => `<div class="rev"><b>${esc(r.username)}</b> ${'&#9733;'.repeat(r.stars)} &mdash; ${esc(r.comment)}</div>`).join('')}
+      </div>`;
+    }).join('') || '<p>No games yet.</p>';
+    list.querySelectorAll('.gcard').forEach(card => {
+      card.querySelector('.stars').onclick = e => {
+        const n = Number(e.target.dataset.s); if (!n) return;
+        card.dataset.stars = n; card.querySelector('.stars').innerHTML = starRow(n);
+      };
+      card.querySelector('[data-send]').onclick = async () => {
+        const note = card.querySelector('.note');
+        try {
+          const r = await api('/api/ratings', { method: 'POST', body: JSON.stringify({
+            slug: card.dataset.slug, stars: Number(card.dataset.stars), comment: card.querySelector('textarea').value }) });
+          note.textContent = 'Thanks!' + (r.reward ? ' +' + r.reward + ' NexBucks' : '') + (r.badges.length ? ' Badge unlocked: ' + r.badges[0].name : '');
+          setTimeout(load, 1200);
+        } catch (e) {
+          note.textContent = e.message.includes('Not signed in') ? 'Sign in on the home page to rate games.' : e.message;
+        }
+      };
+    });
+  } catch (e) { list.innerHTML = '<p>' + esc(e.message) + '</p>'; }
+}
+load();
+</script>
+</body>
+</html>
