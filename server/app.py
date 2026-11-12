@@ -484,9 +484,11 @@ def admin_stats():
 @app.get('/api/leaderboard')
 def leaderboard_list():
     db = get_db()
-    rows = db.execute(
-        'SELECT * FROM leaderboard ORDER BY score DESC LIMIT 100'
-    ).fetchall()
+    game = request.args.get('game')
+    if game:
+        rows = db.execute('SELECT * FROM leaderboard WHERE game = ? ORDER BY score DESC LIMIT 100', (game,)).fetchall()
+    else:
+        rows = db.execute('SELECT * FROM leaderboard ORDER BY score DESC LIMIT 500').fetchall()
     return jsonify(items=[dict(r) for r in rows])
 
 

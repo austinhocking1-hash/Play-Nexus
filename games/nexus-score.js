@@ -40,15 +40,78 @@ window.NexusScore = {
     })(performance.now());
   },
 
+  _device() {
+    let id = '';
+    try {
+      id = localStorage.getItem('nx-vid');
+      if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('nx-vid', id); }
+    } catch (e) {}
+    return id || 'nodevice-' + Math.random().toString(36).slice(2);
+  },
+
+  _esc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  _api(path, opts) {
+    return fetch((window.PLAY_NEXUS_API_BASE || '') + path, Object.assign({ credentials: 'include', headers: { 'Content-Type': 'application/json' } }, opts));
+  },
+  _box() { return document.getElementById('msg') || document.getElementById('overScreen'); },
+  _put(el) {
+    const m = this._box(); if (!m) return;
+    const btn = m.querySelector('button');
+    if (btn && btn.parentNode === m) m.insertBefore(el, btn); else m.appendChild(el);
+  },
+
+  async panel(game, me, limit) {
+    let items = [];
+    try { items = (await (await this._api('/api/arcade/top?game=' + encodeURIComponent(game))).json()).items || []; } catch (e) {}
+    const old = document.getElementById('nxBoard'); if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'nxBoard';
+    el.style.cssText = 'margin:14px auto 6px;max-width:280px;text-align:left;font-size:.92rem';
+    const rows = items.slice(0, limit || 10).map((r, i) => {
+      const mine = me && r.name.toLowerCase() === me.toLowerCase();
+      return `<div style="display:flex;justify-content:space-between;padding:3px 8px;border-radius:6px;${mine ? 'background:rgba(124,92,255,.35);font-weight:700' : ''}"><span>${i + 1}. ${this._esc(r.name)}</span><span>${Number(r.score).toLocaleString()}</span></div>`;
+    }).join('') || '<div style="opacity:.7;text-align:center">No scores yet. Be the first!</div>';
+    el.innerHTML = '<div style="text-align:center;font-weight:700;margin-bottom:4px">&#127942; Leaderboard</div>' + rows;
+    this._put(el);
+  },
+
+  _askName(game, score, msgText) {
+    return new Promise(resolve => {
+      const el = document.createElement('div');
+      el.id = 'nxName';
+      el.style.cssText = 'margin:12px auto;max-width:280px';
+      el.innerHTML = `<div style="font-weight:700">New high score! Pick a name for the leaderboard</div>
+        <div style="opacity:.75;font-size:.85rem;margin:2px 0 6px">You'll only be asked once &mdash; it's used on every game.</div>
+        <input id="nxNameIn" maxlength="16" placeholder="Your name" style="width:70%;padding:8px;border-radius:8px;border:1px solid #555;background:#12142b;color:#fff;font:inherit">
+        <button id="nxNameGo" class="btn" style="padding:8px 12px">Save</button>
+        <div id="nxNameErr" style="color:#ff8aa8;min-height:1.2em;font-size:.85rem">${msgText || ''}</div>`;
+      this._put(el);
+      const go = async () => {
+        const err = el.querySelector('#nxNameErr');
+        const name = el.querySelector('#nxNameIn').value.trim();
+        err.textContent = '';
+        try {
+          const r = await this._api('/api/arcade/submit', { method: 'POST', body: JSON.stringify({ game, score, name, device: this._device() }) });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { err.textContent = d.error || 'Try another name'; return; }
+          try { localStorage.setItem('nx-name', d.name); } catch (e) {}
+          el.remove(); resolve(d.name);
+        } catch (e) { err.textContent = 'Network error, try again'; }
+      };
+      el.querySelector('#nxNameGo').onclick = go;
+      el.querySelector('#nxNameIn').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') go(); });
+      el.querySelector('#nxNameIn').addEventListener('keyup', e => e.stopPropagation());
+    });
+  },
+
   async submit(game, score) {
-    const base = window.PLAY_NEXUS_API_BASE || '';
-    const m = document.getElementById('msg');
+    const m = this._box();
     const add = (html) => {
       if (!m) return;
       const el = document.createElement('p');
       el.style.cssText = 'margin-top:10px;font-weight:600';
       el.innerHTML = html;
-      m.insertBefore(el, m.querySelector('button'));
+      this._put(el);
     };
     let best = 0;
     try { best = Number(localStorage.getItem('nx-best-' + game) || 0); } catch (e) {}
@@ -63,24 +126,50 @@ window.NexusScore = {
       [392, 330, 262].forEach((f, i) => this.tone(f, i * 0.12, 0.2, 'triangle', 0.06));
     }
 
+    let top = [];
+    try { top = (await (await this._api('/api/arcade/top?game=' + encodeURIComponent(game))).json()).items || []; } catch (e) {}
+    const qualifies = score > 0 && (top.length < 10 || score > top[top.length - 1].score);
+
+    let me = null;
     try {
-      const r = await fetch(base + '/api/leaderboard/submit', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game, score })
-      });
+      const r = await this._api('/api/leaderboard/submit', { method: 'POST', body: JSON.stringify({ game, score }) });
       const d = await r.json().catch(() => ({}));
       if (r.status === 401) {
-        add('<a href="../index.html" style="color:inherit">Sign in</a> to earn NexBucks, badges and a spot on the leaderboard!');
-        return;
+        let name = null;
+        try { name = localStorage.getItem('nx-name'); } catch (e) {}
+        if (qualifies) {
+          if (name) {
+            const rr = await this._api('/api/arcade/submit', { method: 'POST', body: JSON.stringify({ game, score, name, device: this._device() }) });
+            if (!rr.ok) name = await this._askName(game, score, 'Your saved name is no longer available. Pick a new one.');
+          } else {
+            name = await this._askName(game, score);
+          }
+        }
+        me = name;
+        add('<a href="../index.html" style="color:inherit">Sign in</a> to also earn NexBucks, badges and weekly prizes!');
+      } else if (r.ok) {
+        try { me = ((await (await this._api('/api/auth/me')).json()).user || {}).username; } catch (e) {}
+        if (d.earned) add('+' + d.earned + ' NexBucks earned!' + (d.daily_bonus ? ' (includes Daily Challenge bonus!)' : ''));
+        (d.badges || []).forEach(b => {
+          add(b.emoji + ' Badge unlocked: <b>' + b.name + '</b>');
+          this.confetti();
+          [659, 880, 1175].forEach((f, i) => this.tone(f, 0.4 + i * 0.1, 0.2, 'square', 0.06));
+        });
       }
-      if (!r.ok) return;
-      if (d.earned) add('+' + d.earned + ' NexBucks earned!' + (d.daily_bonus ? ' (includes Daily Challenge bonus!)' : ''));
-      (d.badges || []).forEach(b => {
-        add(b.emoji + ' Badge unlocked: <b>' + b.name + '</b>');
-        this.confetti();
-        [659, 880, 1175].forEach((f, i) => this.tone(f, 0.4 + i * 0.1, 0.2, 'square', 0.06));
-      });
     } catch (e) {}
+    this.panel(game, me, 10);
   }
 };
+
+(function () {
+  const GAMES = { 'nexus-chomper': 'Nexus Chomper', 'penalty-shootout': 'Penalty Shootout', 'boss-battle': 'Boss Battle',
+    'nebula-runner': 'Nebula Runner', 'castle-siege': 'Castle Siege', 'pixel-sprint': 'Pixel Sprint',
+    'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge' };
+  const slug = location.pathname.split('/').pop().replace('.html', '');
+  document.addEventListener('DOMContentLoaded', () => {
+    if (GAMES[slug] && document.getElementById('msg')) {
+      let me = null; try { me = localStorage.getItem('nx-name'); } catch (e) {}
+      NexusScore.panel(GAMES[slug], me, 5);
+    }
+  });
+})();

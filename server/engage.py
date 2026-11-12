@@ -191,6 +191,64 @@ def ensure_weekly(db):
 def register(app, get_db, require_login, require_admin):
     import threading
     import hashlib
+    import re
+    import time
+    _guest_hits = {}
+    BAD = ('fuck', 'shit', 'bitch', 'nigg', 'cunt', 'dick', 'porn', 'rape', 'nazi', 'admin')
+
+    def clean_name(raw):
+        name = re.sub(r'\s+', ' ', str(raw or '')).strip()
+        if not 3 <= len(name) <= 16 or not re.fullmatch(r"[A-Za-z0-9 _\-]+", name):
+            return None, 'Use 3-16 letters, numbers, spaces, _ or -'
+        if any(b in name.lower().replace(' ', '') for b in BAD):
+            return None, 'Please pick a different name'
+        return name, None
+
+    @app.get('/api/arcade/top')
+    def arcade_top():
+        game = str(request.args.get('game') or '')
+        rows = get_db().execute('SELECT player_name AS name, score FROM leaderboard WHERE game = ? '
+                                'ORDER BY score DESC LIMIT 10', (game,)).fetchall()
+        return jsonify(items=[dict(r) for r in rows], size=10)
+
+    @app.post('/api/arcade/submit')
+    def arcade_submit():
+        data = request.get_json(silent=True) or {}
+        game = str(data.get('game') or '')
+        device = str(data.get('device') or '')[:64]
+        try:
+            score = int(data.get('score'))
+        except (TypeError, ValueError):
+            return jsonify(error='Bad score'), 400
+        if game not in SCORE_CAPS or not 0 <= score <= SCORE_CAPS[game] or len(device) < 8:
+            return jsonify(error='Invalid score'), 400
+        name, err = clean_name(data.get('name'))
+        if err:
+            return jsonify(error=err, need_name=True), 400
+        t = time.time()
+        hits = [h for h in _guest_hits.get(device, []) if t - h < 3600]
+        if len(hits) >= 30:
+            return jsonify(error='Too many submissions, try later'), 429
+        _guest_hits[device] = hits + [t]
+        db = get_db()
+        if db.execute('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE', (name,)).fetchone():
+            return jsonify(error='That name belongs to a registered player. Pick another.', need_name=True), 400
+        owner = db.execute('SELECT device FROM guest_names WHERE name_lower = ?', (name.lower(),)).fetchone()
+        if owner and owner['device'] != device:
+            return jsonify(error='That name is taken. Pick another.', need_name=True), 400
+        if not owner:
+            db.execute('INSERT INTO guest_names (name_lower, name, device) VALUES (?, ?, ?)',
+                       (name.lower(), name, device))
+        row = db.execute('SELECT id, score FROM leaderboard WHERE user_id IS NULL AND game = ? AND '
+                         'player_name = ? COLLATE NOCASE', (game, name)).fetchone()
+        if row:
+            if score > row['score']:
+                db.execute('UPDATE leaderboard SET score = ? WHERE id = ?', (score, row['id']))
+        else:
+            db.execute('INSERT INTO leaderboard (user_id, player_name, game, score) VALUES (NULL, ?, ?, ?)',
+                       (name, game, score))
+        db.commit()
+        return jsonify(ok=True, name=name)
 
     @app.post('/api/track')
     def track():
