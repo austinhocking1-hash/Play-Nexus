@@ -564,8 +564,10 @@ def leaderboard_submit():
         score = int(data.get('score'))
     except (TypeError, ValueError):
         return jsonify(error='"score" must be a number.'), 400
-    if not game:
-        return jsonify(error='"game" is required.'), 400
+    if game not in engage.SCORE_CAPS:
+        return jsonify(error='Unknown game.'), 400
+    if not 0 <= score <= engage.SCORE_CAPS[game]:
+        return jsonify(error='Score out of range.'), 400
 
     db = get_db()
     engage.ensure_weekly(db)

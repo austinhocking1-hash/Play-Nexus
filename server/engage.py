@@ -12,6 +12,10 @@ DAILY_TARGETS = {
     'Nexus Chomper': 800, 'Penalty Shootout': 400, 'Boss Battle': 1000, 'Nebula Runner': 150,
     'Castle Siege': 150, 'Pixel Sprint': 200, 'Space Race': 100, 'Puzzle Forge': 600,
 }
+SCORE_CAPS = {
+    'Nexus Chomper': 100000, 'Penalty Shootout': 500, 'Boss Battle': 3000, 'Nebula Runner': 50000,
+    'Castle Siege': 50000, 'Pixel Sprint': 50000, 'Space Race': 50000, 'Puzzle Forge': 1000,
+}
 DAILY_BONUS = 100
 WEEK = timedelta(days=7)
 

@@ -248,12 +248,25 @@ async function redeemItem(itemId, btn) {
 }
 
 // ---------- Leaderboard ----------
+let lbGame = null;
 async function renderLeaderboard() {
   const body = document.getElementById('leaderboardBody');
   if (!body) return;
   try {
     const { items } = await api('/api/leaderboard');
-    const sorted = items.slice().sort((a, b) => b.score - a.score).slice(0, 10);
+    const games = [...new Set(items.map(e => e.game))].sort();
+    let picker = document.getElementById('lbGamePicker');
+    if (!picker) {
+      picker = document.createElement('div');
+      picker.id = 'lbGamePicker';
+      picker.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 16px';
+      body.closest('table').parentNode.insertBefore(picker, body.closest('table'));
+    }
+    if (!lbGame || !games.includes(lbGame)) lbGame = games[0] || null;
+    picker.innerHTML = games.map(g =>
+      `<button class="btn ${g === lbGame ? 'btn-primary' : 'btn-secondary'}" data-lbgame="${escapeHtml(g)}" style="padding:6px 14px">${escapeHtml(g)}</button>`).join('');
+    picker.querySelectorAll('[data-lbgame]').forEach(b => b.onclick = () => { lbGame = b.dataset.lbgame; renderLeaderboard(); });
+    const sorted = items.filter(e => e.game === lbGame).sort((a, b) => b.score - a.score).slice(0, 10);
     body.innerHTML = sorted.map((e, i) => {
       const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
       return `
@@ -263,7 +276,7 @@ async function renderLeaderboard() {
           <td>${escapeHtml(e.game)}</td>
           <td>${Number(e.score).toLocaleString()}</td>
         </tr>`;
-    }).join('') || '<tr><td colspan="4" class="loading-note">No scores yet.</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="loading-note">No scores yet. Play a game and be the first!</td></tr>';
   } catch {
     body.innerHTML = '<tr><td colspan="4" class="error-note">Could not load the leaderboard. Is the server running?</td></tr>';
   }
