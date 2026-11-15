@@ -46,5 +46,11 @@
     "genre": "Arcade",
     "status": "Live",
     "slug": "nexus-chomper"
+  },
+  {
+    "title": "Boss Rush",
+    "genre": "Action",
+    "status": "Live",
+    "slug": "boss-rush"
   }
 ]

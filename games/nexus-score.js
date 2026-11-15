@@ -160,6 +160,26 @@ window.NexusScore = {
     this.panel(game, me, 10);
     this.shareButton(game, score, me);
     this.maybeSpread();
+    this.partySubmit(score);
+  },
+
+  _party() { return new URLSearchParams(location.search).get('party'); },
+
+  async partySubmit(score) {
+    const pid = this._party(); if (!pid) return;
+    try { await this._api('/api/party/' + encodeURIComponent(pid) + '/score', { method: 'POST', body: JSON.stringify({ score }) }); } catch (e) {}
+    this.partyRefresh();
+  },
+
+  async partyRefresh() {
+    const pid = this._party(); const box = document.getElementById('nxParty'); if (!pid || !box) return;
+    try {
+      const r = await this._api('/api/party/' + encodeURIComponent(pid));
+      if (!r.ok) { box.textContent = 'This party link is not valid anymore.'; return; }
+      const d = await r.json();
+      box.innerHTML = '<b>&#127881; Party: ' + this._esc(d.game) + '</b> &mdash; combined <b>' + Number(d.total).toLocaleString() + '</b><br>' +
+        d.members.map((m, i) => (i + 1) + '. ' + this._esc(m.username) + ' <b>' + Number(m.score).toLocaleString() + '</b>').join(' &nbsp;|&nbsp; ');
+    } catch (e) {}
   },
 
   maybeSpread() {
@@ -206,12 +226,22 @@ window.NexusScore = {
 (function () {
   const GAMES = { 'nexus-chomper': 'Nexus Chomper', 'penalty-shootout': 'Penalty Shootout', 'boss-battle': 'Boss Battle',
     'nebula-runner': 'Nebula Runner', 'castle-siege': 'Castle Siege', 'pixel-sprint': 'Pixel Sprint',
-    'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge' };
+    'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge', 'boss-rush': 'Boss Rush' };
   const slug = location.pathname.split('/').pop().replace('.html', '');
   document.addEventListener('DOMContentLoaded', () => {
     if (GAMES[slug] && document.getElementById('msg')) {
       let me = null; try { me = localStorage.getItem('nx-name'); } catch (e) {}
       NexusScore.panel(GAMES[slug], me, 5);
+      if (NexusScore._party()) {
+        const pb = document.createElement('div');
+        pb.id = 'nxParty';
+        pb.style.cssText = 'margin:10px auto;max-width:640px;padding:10px 14px;border-radius:12px;text-align:center;background:rgba(124,92,255,.18);border:1px solid #7c5cff;font-size:.95rem';
+        pb.textContent = 'Joining party...';
+        const st = document.querySelector('.game-stage');
+        if (st) st.parentNode.insertBefore(pb, st);
+        NexusScore.partyRefresh();
+        setInterval(() => NexusScore.partyRefresh(), 4000);
+      }
       const beat = Number(new URLSearchParams(location.search).get('beat'));
       if (beat > 0) {
         const bn = document.createElement('div');

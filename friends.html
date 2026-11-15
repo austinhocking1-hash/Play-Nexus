@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Friends — Play Nexus</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<style>
+  .fr { max-width: 720px; margin: 0 auto; padding: 40px 16px 64px; }
+  .fr h1 { margin: 0 0 4px; } .fr h2 { margin: 30px 0 10px; font-size: 1.2rem; }
+  .fr .meta { color: var(--text-muted); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card label { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #555a85; display: inline-block; }
+  .dot.on { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .row input, .row select { flex: 1; min-width: 140px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; }
+  .invite { border-color: #7c5cff; background: linear-gradient(90deg, rgba(124,92,255,.18), rgba(255,92,158,.18)); }
+  #frMsg { min-height: 1.4em; color: #ff8aa8; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="container nav">
+    <a href="/" class="logo"><img src="/logo.svg" alt="" width="28" height="28" style="vertical-align:-6px;margin-right:8px">Play<span>Nexus</span></a>
+    <nav><ul><li><a href="/">&larr; Back to Home</a></li></ul></nav>
+  </div>
+</header>
+<main class="fr" id="fr"><p>Loading…</p></main>
+<script src="/config.js"></script>
+<script src="/share.js"></script>
+<script>
+const API = window.PLAY_NEXUS_API_BASE || '';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, { credentials: 'include', headers: {'Content-Type': 'application/json'}, ...opts });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(d.error || 'Request failed'); e.status = r.status; throw e; }
+  return d;
+}
+async function load() {
+  const root = document.getElementById('fr');
+  try {
+    const [{ items, games }, { items: notes }] = await Promise.all([api('/api/friends'), api('/api/notifications')]);
+    const invites = notes.filter(n => n.link);
+    root.innerHTML = `
+      <h1>&#129309; Friends</h1>
+      <p class="meta">Follow friends, then invite them to play any game with you. Everyone's best score in the party is tallied together.</p>
+      ${invites.length ? '<h2>Invites for you</h2>' + invites.map(n => `<div class="card invite"><span style="flex:1">${esc(n.text)}</span><a class="btn btn-primary" href="${esc(n.link)}">Join</a></div>`).join('') : ''}
+      <h2>Add a friend</h2>
+      <div class="row"><input id="fname" placeholder="Their username"><button class="btn btn-secondary" id="fadd">Follow</button></div>
+      <h2>Play together</h2>
+      ${items.length ? `
+        <div class="row"><select id="pgame">${games.map(g => `<option value="${esc(g.slug)}">${esc(g.name)}</option>`).join('')}</select></div>
+        <div id="flist">${items.map(f => `<div class="card"><label><input type="checkbox" value="${esc(f.username)}"><span class="dot ${f.online ? 'on' : ''}"></span><b>${esc(f.username)}</b><span class="meta">${f.online ? 'online now' : 'offline'} &middot; ${f.streak}-day streak</span></label><a href="/profile?u=${encodeURIComponent(f.username)}" class="meta">profile</a></div>`).join('')}</div>
+        <div class="row"><button class="btn btn-primary" id="pgo">Start party &amp; invite selected</button><button class="btn btn-secondary" id="pshare">Invite someone new to Play Nexus</button></div>`
+      : '<p class="meta">No friends yet. Follow someone above, or invite a new friend to join Play Nexus.</p><div class="row"><button class="btn btn-secondary" id="pshare">Invite someone new to Play Nexus</button></div>'}
+      <div id="frMsg"></div>`;
+    const msg = document.getElementById('frMsg');
+    document.getElementById('fadd').onclick = async () => {
+      try { await api('/api/follow', { method: 'POST', body: JSON.stringify({ username: document.getElementById('fname').value }) }); load(); }
+      catch (e) { msg.textContent = e.message; }
+    };
+    const pshare = document.getElementById('pshare'); if (pshare) pshare.onclick = () => NexusShare.open('Invite a friend to Play Nexus');
+    const pgo = document.getElementById('pgo');
+    if (pgo) pgo.onclick = async () => {
+      const picked = [...document.querySelectorAll('#flist input:checked')].map(i => i.value);
+      try {
+        const r = await api('/api/party', { method: 'POST', body: JSON.stringify({ slug: document.getElementById('pgame').value, friends: picked }) });
+        if (picked.length) await api('/api/notifications/seen', { method: 'POST' }).catch(() => {});
+        location.href = r.link;
+      } catch (e) { msg.textContent = e.message; }
+    };
+  } catch (e) {
+    root.innerHTML = e.status === 401
+      ? '<h1>Friends</h1><p class="meta">Sign in on the <a href="/">home page</a> to add friends and invite them to play.</p>'
+      : '<h1>Friends</h1><p class="meta">' + esc(e.message) + '</p>';
+  }
+}
+load();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

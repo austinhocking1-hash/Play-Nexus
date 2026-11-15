@@ -80,6 +80,21 @@ CREATE TABLE IF NOT EXISTS weekly_scores (
     PRIMARY KEY (event_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS parties (
+    id TEXT PRIMARY KEY,
+    host_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_slug TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS party_scores (
+    party_id TEXT NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    username TEXT NOT NULL,
+    score INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (party_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS referrals (
     referred_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -225,11 +240,16 @@ def init_db(app):
         db.executescript(SCHEMA)
         for col in ("streak INTEGER NOT NULL DEFAULT 0", "last_claim TEXT NOT NULL DEFAULT ''",
                     "earned_today INTEGER NOT NULL DEFAULT 0", "earned_date TEXT NOT NULL DEFAULT ''",
-                    "plays INTEGER NOT NULL DEFAULT 0", "unseen_win TEXT NOT NULL DEFAULT ''"):
+                    "plays INTEGER NOT NULL DEFAULT 0", "unseen_win TEXT NOT NULL DEFAULT ''",
+                    "last_seen TEXT NOT NULL DEFAULT ''"):
             try:
                 db.execute('ALTER TABLE users ADD COLUMN ' + col)
             except sqlite3.OperationalError:
                 pass
+        try:
+            db.execute("ALTER TABLE notifications ADD COLUMN link TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
 
         if db.execute('SELECT COUNT(*) FROM games').fetchone()[0] == 0:
             db.executemany(

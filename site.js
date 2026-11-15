@@ -123,8 +123,8 @@ async function showAccountExtras() {
   }
   try {
     const { items } = await api('/api/notifications');
-    items.slice(0, 3).forEach(n => toast('&#128276; ' + escapeHtml(n.text)));
-    if (items.length) api('/api/notifications/seen', { method: 'POST' }).catch(() => {});
+    items.slice(0, 3).forEach(n => toast('&#128276; ' + escapeHtml(n.text) + (n.link ? ` <a href="${escapeHtml(n.link)}" style="color:#ffd166;font-weight:700">Join</a>` : ''), n.link ? 15000 : 6000));
+    if (items.some(n => !n.link)) api('/api/notifications/seen', { method: 'POST' }).catch(() => {});
   } catch (e) {}
 }
 
@@ -194,7 +194,7 @@ async function renderGames() {
     const live = items.filter(g => g.status === 'Live');
     grid.innerHTML = live.map((g, i) => `
       <article class="game-card">
-        <div class="game-thumb thumb-${(i % 4) + 1}"></div>
+        <div class="game-thumb thumb-${(i % 4) + 1}" style="background:url(art/games/${encodeURIComponent(g.slug)}.svg) center/cover, #1e2142"></div>
         <h3>${escapeHtml(g.title)}</h3>
         <p>${escapeHtml(g.genre)} game &middot; ${sum[g.slug] ? `<a href="/ratings" style="color:#ffd166;text-decoration:none">&#9733; ${sum[g.slug].avg} (${sum[g.slug].count})</a>` : '<a href="/ratings" style="color:inherit">Be the first to rate</a>'}</p>
         <a href="games/${encodeURIComponent(g.slug)}.html" class="btn btn-small">Play</a>
@@ -212,7 +212,7 @@ async function renderShop() {
     const { items } = await api('/api/shop');
     grid.innerHTML = items.map((s, i) => `
       <article class="shop-card">
-        <div class="shop-thumb thumb-${(i % 4) + 1}"></div>
+        <div class="shop-thumb thumb-${(i % 4) + 1}" style="background:url(art/shop/${['skin','boost','badge','theme'].includes(String(s.category).toLowerCase()) ? String(s.category).toLowerCase() : 'default'}.svg) center/cover, #1e2142"></div>
         <span class="shop-tag">${escapeHtml(s.category)}</span>
         <h3>${escapeHtml(s.name)}</h3>
         <p>Redeemable with NexBucks earned from playing.</p>

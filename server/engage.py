@@ -5,16 +5,19 @@ from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 
+SLUGS = {'Nexus Chomper': 'nexus-chomper', 'Penalty Shootout': 'penalty-shootout', 'Boss Battle': 'boss-battle',
+         'Boss Rush': 'boss-rush', 'Nebula Runner': 'nebula-runner', 'Castle Siege': 'castle-siege',
+         'Pixel Sprint': 'pixel-sprint', 'Space Race': 'space-race', 'Puzzle Forge': 'puzzle-forge'}
 GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
-         'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge']
+         'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush']
 
 DAILY_TARGETS = {
     'Nexus Chomper': 800, 'Penalty Shootout': 400, 'Boss Battle': 1000, 'Nebula Runner': 150,
-    'Castle Siege': 150, 'Pixel Sprint': 200, 'Space Race': 100, 'Puzzle Forge': 600,
+    'Castle Siege': 150, 'Pixel Sprint': 200, 'Space Race': 100, 'Puzzle Forge': 600, 'Boss Rush': 2400,
 }
 SCORE_CAPS = {
     'Nexus Chomper': 100000, 'Penalty Shootout': 500, 'Boss Battle': 3000, 'Nebula Runner': 50000,
-    'Castle Siege': 50000, 'Pixel Sprint': 50000, 'Space Race': 50000, 'Puzzle Forge': 1000,
+    'Castle Siege': 50000, 'Pixel Sprint': 50000, 'Space Race': 50000, 'Puzzle Forge': 1000, 'Boss Rush': 4000,
 }
 DAILY_BONUS = 100
 WEEK = timedelta(days=7)
@@ -63,9 +66,9 @@ def badge_info(b):
     return {'id': b, 'name': name, 'emoji': emoji, 'desc': desc}
 
 
-def notify(db, user_id, text):
-    db.execute('INSERT INTO notifications (user_id, text, created_at) VALUES (?, ?, ?)',
-               (user_id, text[:200], datetime.now(timezone.utc).isoformat()))
+def notify(db, user_id, text, link=''):
+    db.execute('INSERT INTO notifications (user_id, text, created_at, link) VALUES (?, ?, ?, ?)',
+               (user_id, text[:200], datetime.now(timezone.utc).isoformat(), link[:200]))
 
 
 def after_score(db, user, game, score, old_best):
@@ -294,6 +297,84 @@ def register(app, get_db, require_login, require_admin):
         return jsonify(today=agg('WHERE day = ?', (today,)), week=agg('WHERE day >= ?', (week_ago,)),
                        total=agg(), days=days, pages=pages)
 
+    @app.get('/api/friends')
+    def friends_list():
+        user, err = require_login()
+        if err:
+            return err
+        db = get_db()
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+        rows = db.execute('SELECT u.username, u.streak, u.plays, u.last_seen FROM follows f '
+                          'JOIN users u ON u.id = f.followed_id WHERE f.follower_id = ? ORDER BY u.username',
+                          (user['id'],)).fetchall()
+        return jsonify(items=[{'username': r['username'], 'streak': r['streak'], 'plays': r['plays'],
+                               'online': bool(r['last_seen'] and r['last_seen'] > cutoff)} for r in rows],
+                       games=[{'name': n, 'slug': s} for n, s in SLUGS.items()])
+
+    @app.post('/api/party')
+    def party_create():
+        import secrets
+        user, err = require_login()
+        if err:
+            return err
+        data = request.get_json(silent=True) or {}
+        slug = str(data.get('slug') or '')
+        if slug not in SLUGS.values():
+            return jsonify(error='Pick a game'), 400
+        names = [str(n) for n in (data.get('friends') or [])][:10]
+        db = get_db()
+        pid = secrets.token_urlsafe(6)
+        db.execute('INSERT INTO parties (id, host_id, game_slug, created_at) VALUES (?, ?, ?, ?)',
+                   (pid, user['id'], slug, datetime.now(timezone.utc).isoformat()))
+        db.execute('INSERT INTO party_scores (party_id, user_id, username, score) VALUES (?, ?, ?, 0)',
+                   (pid, user['id'], user['username']))
+        link = f'/games/{slug}.html?party={pid}'
+        game_name = next(n for n, s in SLUGS.items() if s == slug)
+        for n in names:
+            f = db.execute('SELECT u.id FROM follows f JOIN users u ON u.id = f.followed_id '
+                           'WHERE f.follower_id = ? AND u.username = ? COLLATE NOCASE', (user['id'], n)).fetchone()
+            if f:
+                notify(db, f['id'], f"{user['username']} invited you to play {game_name}!", link)
+        db.commit()
+        return jsonify(ok=True, id=pid, link=link), 201
+
+    @app.get('/api/party/<pid>')
+    def party_get(pid):
+        db = get_db()
+        p = db.execute('SELECT * FROM parties WHERE id = ?', (pid,)).fetchone()
+        if not p:
+            return jsonify(error='Party not found'), 404
+        rows = db.execute('SELECT username, score FROM party_scores WHERE party_id = ? ORDER BY score DESC',
+                          (pid,)).fetchall()
+        game = next((n for n, s in SLUGS.items() if s == p['game_slug']), p['game_slug'])
+        return jsonify(id=pid, game=game, slug=p['game_slug'], members=[dict(r) for r in rows],
+                       total=sum(r['score'] for r in rows))
+
+    @app.post('/api/party/<pid>/score')
+    def party_score(pid):
+        user, err = require_login()
+        if err:
+            return err
+        db = get_db()
+        p = db.execute('SELECT game_slug FROM parties WHERE id = ?', (pid,)).fetchone()
+        if not p:
+            return jsonify(error='Party not found'), 404
+        try:
+            score = int((request.get_json(silent=True) or {}).get('score'))
+        except (TypeError, ValueError):
+            return jsonify(error='Bad score'), 400
+        game = next(n for n, s in SLUGS.items() if s == p['game_slug'])
+        if not 0 <= score <= SCORE_CAPS.get(game, 0):
+            return jsonify(error='Score out of range'), 400
+        if db.execute('SELECT COUNT(*) FROM party_scores WHERE party_id = ?', (pid,)).fetchone()[0] >= 10 and \
+                not db.execute('SELECT 1 FROM party_scores WHERE party_id = ? AND user_id = ?', (pid, user['id'])).fetchone():
+            return jsonify(error='Party is full'), 400
+        db.execute('INSERT INTO party_scores (party_id, user_id, username, score) VALUES (?, ?, ?, ?) '
+                   'ON CONFLICT(party_id, user_id) DO UPDATE SET score = MAX(score, excluded.score)',
+                   (pid, user['id'], user['username'], score))
+        db.commit()
+        return jsonify(ok=True)
+
     @app.post('/api/ratings')
     def rate_game():
         user, err = require_login()
@@ -457,7 +538,7 @@ def register(app, get_db, require_login, require_admin):
         user, err = require_login()
         if err:
             return err
-        rows = get_db().execute('SELECT id, text, created_at FROM notifications WHERE user_id = ? AND seen = 0 '
+        rows = get_db().execute('SELECT id, text, created_at, link FROM notifications WHERE user_id = ? AND seen = 0 '
                                 'ORDER BY id DESC LIMIT 10', (user['id'],)).fetchall()
         return jsonify(items=[dict(r) for r in rows])
 

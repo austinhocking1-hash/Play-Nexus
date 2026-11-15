@@ -224,6 +224,9 @@ def me():
     user = current_user()
     if not user:
         return jsonify(user=None)
+    db = get_db()
+    db.execute('UPDATE users SET last_seen = ? WHERE id = ?', (now(), user['id']))
+    db.commit()
     return jsonify(user=user_public(user))
 
 
@@ -645,7 +648,7 @@ def claim_daily():
 # ---------- weekly prize ----------
 
 SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
-                  'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge']
+                  'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush']
 
 
 @app.get('/api/weekly')
