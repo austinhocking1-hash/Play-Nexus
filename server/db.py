@@ -80,6 +80,12 @@ CREATE TABLE IF NOT EXISTS weekly_scores (
     PRIMARY KEY (event_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS referrals (
+    referred_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS guest_names (
     name_lower TEXT PRIMARY KEY,
     name TEXT NOT NULL,

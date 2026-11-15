@@ -158,6 +158,29 @@ window.NexusScore = {
       }
     } catch (e) {}
     this.panel(game, me, 10);
+    this.shareButton(game, score, me);
+  },
+
+  shareButton(game, score, me) {
+    if (score <= 0) return;
+    const old = document.getElementById('nxShare'); if (old) old.remove();
+    const b = document.createElement('button');
+    b.id = 'nxShare'; b.className = 'btn';
+    b.style.cssText = 'margin:8px 6px 0;background:linear-gradient(90deg,#2fd0ff,#7c5cff)';
+    b.textContent = 'Challenge a friend';
+    b.onclick = async () => {
+      const u = new URL(location.href);
+      u.search = ''; u.hash = '';
+      u.searchParams.set('beat', score);
+      if (me) u.searchParams.set('ref', me);
+      const text = 'I scored ' + Number(score).toLocaleString() + ' in ' + game + ' on Play Nexus. Can you beat me?';
+      try {
+        if (navigator.share) { await navigator.share({ title: 'Play Nexus', text, url: u.toString() }); return; }
+      } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(text + ' ' + u.toString()); b.textContent = 'Link copied!'; }
+      catch (e) { prompt('Copy this link:', text + ' ' + u.toString()); }
+    };
+    const m = this._box(); if (m) m.appendChild(b);
   }
 };
 
@@ -170,6 +193,14 @@ window.NexusScore = {
     if (GAMES[slug] && document.getElementById('msg')) {
       let me = null; try { me = localStorage.getItem('nx-name'); } catch (e) {}
       NexusScore.panel(GAMES[slug], me, 5);
+      const beat = Number(new URLSearchParams(location.search).get('beat'));
+      if (beat > 0) {
+        const bn = document.createElement('div');
+        bn.style.cssText = 'margin:10px auto;max-width:640px;padding:10px 14px;border-radius:12px;text-align:center;font-weight:700;background:linear-gradient(90deg,rgba(47,208,255,.2),rgba(255,92,158,.2));border:1px solid #7c5cff';
+        bn.textContent = '\u2694\ufe0f A friend challenged you: beat ' + beat.toLocaleString() + '!';
+        const stage = document.querySelector('.game-stage');
+        if (stage) stage.parentNode.insertBefore(bn, stage);
+      }
     }
   });
 })();

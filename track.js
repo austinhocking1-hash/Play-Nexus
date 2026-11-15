@@ -1,5 +1,9 @@
 (function () {
   try {
+    var r = new URLSearchParams(location.search).get('ref');
+    if (r) localStorage.setItem('nx-ref', r.slice(0, 20));
+  } catch (e) {}
+  try {
     var id = '';
     try {
       id = localStorage.getItem('nx-vid');

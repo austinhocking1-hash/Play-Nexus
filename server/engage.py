@@ -405,6 +405,7 @@ def register(app, get_db, require_login, require_admin):
         following = db.execute('SELECT COUNT(*) FROM follows WHERE follower_id = ?', (u['id'],)).fetchone()[0]
         wins = db.execute("SELECT COUNT(*) FROM weekly_events WHERE winner_name = ? AND status = 'ended'",
                           (u['username'],)).fetchone()[0]
+        invited = db.execute('SELECT COUNT(*) FROM referrals WHERE referrer_id = ?', (u['id'],)).fetchone()[0]
         from flask import session
         me = session.get('user_id')
         is_following = bool(me and db.execute(
@@ -418,7 +419,7 @@ def register(app, get_db, require_login, require_admin):
         return jsonify(username=u['username'], joined=u['created_at'][:10], streak=u['streak'],
                        plays=u['plays'], badges=badges, scores=scores, followers=followers,
                        following=following, weekly_wins=wins, is_following=is_following,
-                       is_me=(me == u['id']), friends=friends)
+                       is_me=(me == u['id']), friends=friends, invited=invited)
 
     @app.post('/api/follow')
     def follow():

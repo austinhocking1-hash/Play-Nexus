@@ -175,6 +175,19 @@ def signup():
         (username, email, generate_password_hash(password, method='pbkdf2:sha256'), now()),
     )
     db.commit()
+    ref = (data.get('ref') or '').strip()
+    if ref:
+        referrer = db.execute('SELECT id FROM users WHERE username = ? COLLATE NOCASE AND role = ?',
+                              (ref, 'player')).fetchone()
+        count = referrer and db.execute('SELECT COUNT(*) FROM referrals WHERE referrer_id = ?',
+                                        (referrer['id'],)).fetchone()[0]
+        if referrer and count < 25:
+            db.execute('INSERT INTO referrals (referred_id, referrer_id, created_at) VALUES (?, ?, ?)',
+                       (cur.lastrowid, referrer['id'], now()))
+            db.execute('UPDATE users SET nexbucks = nexbucks + 100 WHERE id IN (?, ?)',
+                       (referrer['id'], cur.lastrowid))
+            engage.notify(db, referrer['id'], f'{username} joined with your invite link: +100 NexBucks!')
+    db.commit()
     session.clear()
     session['user_id'] = cur.lastrowid
     user = db.execute('SELECT * FROM users WHERE id = ?', (cur.lastrowid,)).fetchone()

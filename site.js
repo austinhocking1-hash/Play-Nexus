@@ -84,6 +84,7 @@ signupForm.addEventListener('submit', async e => {
         username: document.getElementById('signupUsername').value.trim(),
         email: document.getElementById('signupEmail').value.trim(),
         password: document.getElementById('signupPassword').value,
+        ref: (function () { try { return localStorage.getItem('nx-ref') || ''; } catch (e) { return ''; } })(),
       }),
     });
     currentUser = user;

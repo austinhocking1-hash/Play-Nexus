@@ -74,10 +74,19 @@ async function load() {
       <div class="badges">${all.badges.map(b => `<div class="badge ${have.has(b.id) ? '' : 'locked'}"><span class="e">${b.emoji}</span> <b>${esc(b.name)}</b><small>${esc(b.desc)}</small></div>`).join('')}</div>
       <h2>Best scores</h2>
       ${p.scores.length ? p.scores.map(s => `<div class="row"><span>${esc(s.game)}</span><b>${Number(s.score).toLocaleString()}</b></div>`).join('') : '<p class="meta">No scores yet.</p>'}
+      ${p.is_me ? `<h2>Invite friends, earn NexBucks</h2>
+        <p class="meta">You and each friend who signs up with your link both get +100 NexBucks (up to 25 friends). Invited so far: <b>${p.invited}</b></p>
+        <div class="follow-form"><input id="invlink" readonly value="${location.origin}/?ref=${encodeURIComponent(p.username)}"><button class="btn btn-secondary" id="invcopy">Copy link</button></div>` : ''}
       ${p.is_me ? `<h2>Friends</h2>
         ${p.friends.length ? p.friends.map(f => `<div class="row"><a href="/profile?u=${encodeURIComponent(f.username)}">${esc(f.username)}</a><b>${Number(f.total).toLocaleString()} total pts</b></div>`).join('') : '<p class="meta">Follow players to see them here and get notified when they beat your scores.</p>'}
         <div class="follow-form"><input id="fname" placeholder="Username to follow"><button class="btn btn-secondary" id="fadd">Follow</button></div>
         <p class="meta" id="fmsg"></p>` : ''}`;
+    const invcopy = document.getElementById('invcopy');
+    if (invcopy) invcopy.onclick = async () => {
+      const v = document.getElementById('invlink').value;
+      try { await navigator.clipboard.writeText(v); invcopy.textContent = 'Copied!'; }
+      catch (e) { document.getElementById('invlink').select(); }
+    };
     const fbtn = document.getElementById('fbtn');
     if (fbtn) fbtn.onclick = async () => {
       try { await api(p.is_following ? '/api/unfollow' : '/api/follow', { method: 'POST', body: JSON.stringify({ username: p.username }) }); load(); }
