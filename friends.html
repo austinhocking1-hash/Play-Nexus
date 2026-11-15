@@ -20,12 +20,13 @@
   .invite { border-color: #7c5cff; background: linear-gradient(90deg, rgba(124,92,255,.18), rgba(255,92,158,.18)); }
   #frMsg { min-height: 1.4em; color: #ff8aa8; }
 </style>
+<style>.back-pill{display:inline-block;padding:8px 16px;border:1px solid #7c5cff;border-radius:999px;background:rgba(124,92,255,.15);color:#fff!important;font-weight:700;text-decoration:none}.back-pill:hover{background:rgba(124,92,255,.35)}</style>
 </head>
 <body>
 <header class="site-header">
   <div class="container nav">
     <a href="/" class="logo"><img src="/logo.svg" alt="" width="28" height="28" style="vertical-align:-6px;margin-right:8px">Play<span>Nexus</span></a>
-    <nav><ul><li><a href="/">&larr; Back to Home</a></li></ul></nav>
+    <nav><ul><li><a href="/" class="back-pill" onclick="if(history.length>1&&document.referrer.indexOf(location.origin)===0){history.back();return false}">&larr; Back</a></li></ul></nav>
   </div>
 </header>
 <main class="fr" id="fr"><p>Loading…</p></main>

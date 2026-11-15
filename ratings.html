@@ -25,12 +25,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Play Nexus">
+<style>.back-pill{display:inline-block;padding:8px 16px;border:1px solid #7c5cff;border-radius:999px;background:rgba(124,92,255,.15);color:#fff!important;font-weight:700;text-decoration:none}.back-pill:hover{background:rgba(124,92,255,.35)}</style>
 </head>
 <body>
 <header class="site-header">
   <div class="container nav">
     <a href="/" class="logo">Play<span>Nexus</span></a>
-    <nav><ul><li><a href="/">&larr; Back to Home</a></li></ul></nav>
+    <nav><ul><li><a href="/" class="back-pill" onclick="if(history.length>1&&document.referrer.indexOf(location.origin)===0){history.back();return false}">&larr; Back</a></li></ul></nav>
   </div>
 </header>
 <main class="rc">

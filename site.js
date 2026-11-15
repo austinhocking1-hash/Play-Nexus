@@ -194,8 +194,8 @@ async function renderGames() {
     const live = items.filter(g => g.status === 'Live');
     grid.innerHTML = live.map((g, i) => `
       <article class="game-card">
-        <div class="game-thumb thumb-${(i % 4) + 1}" style="background:url(art/games/${encodeURIComponent(g.slug)}.svg) center/cover, #1e2142"></div>
-        <h3>${escapeHtml(g.title)}</h3>
+        <a href="games/${encodeURIComponent(g.slug)}.html" aria-label="Play ${escapeHtml(g.title)}" style="display:block"><div class="game-thumb thumb-${(i % 4) + 1}" style="background:url(art/games/${encodeURIComponent(g.slug)}.svg) center/cover, #1e2142"></div></a>
+        <h3><a href="games/${encodeURIComponent(g.slug)}.html" style="color:inherit;text-decoration:none">${escapeHtml(g.title)}</a></h3>
         <p>${escapeHtml(g.genre)} game &middot; ${sum[g.slug] ? `<a href="/ratings" style="color:#ffd166;text-decoration:none">&#9733; ${sum[g.slug].avg} (${sum[g.slug].count})</a>` : '<a href="/ratings" style="color:inherit">Be the first to rate</a>'}</p>
         <a href="games/${encodeURIComponent(g.slug)}.html" class="btn btn-small">Play</a>
       </article>`).join('') || '<p class="loading-note">No games listed yet.</p>';
