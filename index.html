@@ -21,7 +21,7 @@
 <style>
 #splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a2370 0%,#0f1120 65%);transition:opacity .6s ease,visibility .6s;cursor:pointer}
 #splash.hide{opacity:0;visibility:hidden}
-#splash svg{width:120px;height:120px;filter:drop-shadow(0 0 24px rgba(124,92,255,.8));animation:spPop .9s cubic-bezier(.2,1.4,.4,1) both,spFloat 2.2s ease-in-out .9s infinite}
+#splash img{filter:drop-shadow(0 0 24px rgba(124,92,255,.8));animation:spPop .9s cubic-bezier(.2,1.4,.4,1) both,spFloat 2.2s ease-in-out .9s infinite}
 #splash .sp-word{margin-top:18px;font:800 2.6rem/1 -apple-system,Helvetica,Arial,sans-serif;letter-spacing:.14em;color:#fff;animation:spUp .7s ease .5s both}
 #splash .sp-word b{background:linear-gradient(90deg,#2fd0ff,#c026ff,#ff5c9e);-webkit-background-clip:text;background-clip:text;color:transparent}
 #splash .sp-tag{margin-top:12px;font:600 .8rem -apple-system,Helvetica,Arial,sans-serif;letter-spacing:.35em;color:#a7abc9;animation:spUp .7s ease .8s both}
@@ -36,11 +36,7 @@
 </head>
 <body>
 <div id="splash" aria-hidden="true">
-  <svg viewBox="0 0 24 24" fill="none" stroke="url(#spGrad)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-    <defs><linearGradient id="spGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2fd0ff"/><stop offset="100%" stop-color="#c026ff"/></linearGradient></defs>
-    <path d="M6 11h.01M9 8v6M7.5 9.5h3M15 11.5h.01M17.5 9.5h.01M17.5 13h.01M15 13h.01"/>
-    <path d="M7.5 6h9a4.5 4.5 0 0 1 4.44 3.79l.68 4.5A3 3 0 0 1 18.7 18a3 3 0 0 1-2.52-1.36L15 15H9l-1.18 1.64A3 3 0 0 1 5.3 18a3 3 0 0 1-2.97-3.71l.68-4.5A4.5 4.5 0 0 1 7.5 6Z"/>
-  </svg>
+  <img src="/logo.svg" alt="" width="140" height="140" style="width:140px;height:140px">
   <div class="sp-word">PLAY<b>NEXUS</b></div>
   <div class="sp-tag">PLAY MORE. CONNECT. LEVEL UP.</div>
   <div class="sp-bar"><i></i></div>
@@ -59,7 +55,7 @@
 
 <header class="site-header">
   <div class="container nav">
-    <a href="#" class="logo">Play<span>Nexus</span></a>
+    <a href="#" class="logo"><img src="/logo.svg" alt="" width="28" height="28" style="vertical-align:-6px;margin-right:8px">Play<span>Nexus</span></a>
     <nav>
       <ul>
         <li><a href="#games">Games</a></li>
