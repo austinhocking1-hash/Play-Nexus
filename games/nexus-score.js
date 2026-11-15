@@ -159,6 +159,25 @@ window.NexusScore = {
     } catch (e) {}
     this.panel(game, me, 10);
     this.shareButton(game, score, me);
+    this.maybeSpread();
+  },
+
+  maybeSpread() {
+    let n = 0, asked = false;
+    try { n = Number(sessionStorage.getItem('nx-games') || 0) + 1; sessionStorage.setItem('nx-games', n);
+          asked = sessionStorage.getItem('nx-spread') === '1'; } catch (e) {}
+    if (n < 3 || asked) return;
+    try { sessionStorage.setItem('nx-spread', '1'); } catch (e) {}
+    const m = this._box(); if (!m) return;
+    const a = document.createElement('a');
+    a.href = '#'; a.textContent = 'Enjoying Play Nexus? Tell a friend';
+    a.style.cssText = 'display:block;margin-top:12px;color:#ffd166;font-weight:700';
+    a.onclick = async (e) => {
+      e.preventDefault();
+      if (!window.NexusShare) await new Promise(res => { const sc = document.createElement('script'); sc.src = '../share.js'; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); });
+      if (window.NexusShare) NexusShare.open();
+    };
+    m.appendChild(a);
   },
 
   shareButton(game, score, me) {
