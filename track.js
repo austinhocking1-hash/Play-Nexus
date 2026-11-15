@@ -11,3 +11,5 @@
     else fetch(base + '/api/track', { method: 'POST', body: body, keepalive: true });
   } catch (e) {}
 })();
+
+if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); }); }
