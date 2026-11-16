@@ -190,13 +190,9 @@ DEFAULT_CHALLENGES = [
     ('Siege Breaker', 'Event', 'Exclusive Badge'),
 ]
 
-DEFAULT_LEADERBOARD = [
-    (None, 'NovaStrike', 'Nebula Runner', 98430),
-    (None, 'ByteBender', 'Puzzle Forge', 91110),
-    (None, 'ShadowVex', 'Castle Siege', 87905),
-    (None, 'PixelPhoenix', 'Pixel Sprint', 82340),
-    (None, 'QuantumJinx', 'Nebula Runner', 79215),
-]
+# Fake demo scores (NovaStrike etc.) used to be seeded here; the board now
+# only ever shows real players.
+FAKE_NAMES = ('NovaStrike', 'ByteBender', 'ShadowVex', 'PixelPhoenix', 'QuantumJinx')
 
 
 def now():
@@ -266,11 +262,9 @@ def init_db(app):
                 'INSERT INTO challenges (name, type, reward) VALUES (?, ?, ?)',
                 DEFAULT_CHALLENGES,
             )
-        if db.execute('SELECT COUNT(*) FROM leaderboard').fetchone()[0] == 0:
-            db.executemany(
-                'INSERT INTO leaderboard (user_id, player_name, game, score) VALUES (?, ?, ?, ?)',
-                DEFAULT_LEADERBOARD,
-            )
+        # Purge the old fake seed scores (only those with no real user behind them).
+        db.execute('DELETE FROM leaderboard WHERE user_id IS NULL AND player_name IN (%s)'
+                   % ','.join('?' * len(FAKE_NAMES)), FAKE_NAMES)
 
         # Seed the admin account from environment variables, never from
         # a hardcoded credential in source. Only runs once per fresh DB.
