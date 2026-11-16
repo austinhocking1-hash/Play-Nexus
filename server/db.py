@@ -179,6 +179,12 @@ DEFAULT_GAMES = [
 
 DEFAULT_SHOP = [
     ('Nova Ranger Skin', 'Skin', 800),
+    ('Golden Skin', 'Skin', 400),
+    ('Inferno Skin', 'Skin', 500),
+    ('Toxic Skin', 'Skin', 500),
+    ('Ice Skin', 'Skin', 600),
+    ('Shadow Skin', 'Skin', 700),
+    ('Rainbow Skin', 'Skin', 1200),
     ('Double XP Token', 'Boost', 350),
     ('Siege Master Badge', 'Badge', 1200),
     ('Retro Pixel Theme', 'Theme', 600),
@@ -262,6 +268,13 @@ def init_db(app):
                 'INSERT INTO challenges (name, type, reward) VALUES (?, ?, ?)',
                 DEFAULT_CHALLENGES,
             )
+        # Databases restored from backup predate newer games/shop items: add any missing.
+        for t, gn, st, sl in (load_games_seed() or []):
+            if not db.execute('SELECT 1 FROM games WHERE slug = ?', (sl,)).fetchone():
+                db.execute('INSERT INTO games (title, genre, status, slug) VALUES (?, ?, ?, ?)', (t, gn, st, sl))
+        for nm, cat, pr in DEFAULT_SHOP:
+            if not db.execute('SELECT 1 FROM shop_items WHERE name = ?', (nm,)).fetchone():
+                db.execute('INSERT INTO shop_items (name, category, price) VALUES (?, ?, ?)', (nm, cat, pr))
         # Purge the old fake seed scores (only those with no real user behind them).
         db.execute('DELETE FROM leaderboard WHERE user_id IS NULL AND player_name IN (%s)'
                    % ','.join('?' * len(FAKE_NAMES)), FAKE_NAMES)

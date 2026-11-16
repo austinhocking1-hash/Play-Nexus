@@ -129,8 +129,8 @@ function draw() {
   ctx.fillRect(0, groundY, W, H - groundY);
 
   const grad2 = ctx.createLinearGradient(player.x, player.y, player.x + player.w, player.y + player.h);
-  grad2.addColorStop(0, '#2fd0ff');
-  grad2.addColorStop(1, '#c026ff');
+  grad2.addColorStop(0, NexusScore.skin()[0]);
+  grad2.addColorStop(1, NexusScore.skin()[1]);
   ctx.fillStyle = grad2;
   ctx.fillRect(player.x, player.y, player.w, player.h);
 

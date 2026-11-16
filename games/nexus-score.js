@@ -226,7 +226,8 @@ window.NexusScore = {
 (function () {
   const GAMES = { 'nexus-chomper': 'Nexus Chomper', 'penalty-shootout': 'Penalty Shootout', 'boss-battle': 'Boss Battle',
     'nebula-runner': 'Nebula Runner', 'castle-siege': 'Castle Siege', 'pixel-sprint': 'Pixel Sprint',
-    'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge', 'boss-rush': 'Boss Rush' };
+    'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge', 'boss-rush': 'Boss Rush',
+    'nexus-breaker': 'Nexus Breaker', 'neon-snake': 'Neon Snake', 'flap-nexus': 'Flap Nexus', 'tile-merge': 'Tile Merge' };
   const slug = location.pathname.split('/').pop().replace('.html', '');
   document.addEventListener('DOMContentLoaded', () => {
     if (GAMES[slug] && document.getElementById('msg')) {
@@ -251,5 +252,94 @@ window.NexusScore = {
         if (stage) stage.parentNode.insertBefore(bn, stage);
       }
     }
+  });
+})();
+
+// ---------- Skins (bought in the shop) + fullscreen ----------
+(function () {
+  const SKINS = {
+    'Nova Ranger Skin': ['#4ade80', '#2fd0ff'], 'Golden Skin': ['#ffe27a', '#ff9f1c'],
+    'Inferno Skin': ['#ff5c3a', '#ffb000'], 'Toxic Skin': ['#b6ff3a', '#1fbf5a'],
+    'Ice Skin': ['#e6fbff', '#4aa3ff'], 'Shadow Skin': ['#cfd3ff', '#4b4f8a'], 'Rainbow Skin': 'rainbow',
+  };
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  // Colours the player/ship/chomper should use right now: [c1, c2].
+  NexusScore.skin = function () {
+    const s = SKINS[get('nx-skin')];
+    if (!s || !(get('nx-owned') || '').split('|').includes(get('nx-skin'))) return ['#2fd0ff', '#c026ff'];
+    if (s === 'rainbow') { const h = (performance.now() / 8) % 360; return ['hsl(' + h + ',90%,60%)', 'hsl(' + (h + 70) % 360 + ',90%,60%)']; }
+    return s;
+  };
+  const GAME = location.pathname.split('/').pop().replace('.html', '');
+  document.addEventListener('DOMContentLoaded', () => {
+    const stage = document.querySelector('.game-stage');
+    if (!stage || !document.getElementById('msg')) return;
+    const style = document.createElement('style');
+    style.textContent = '.nx-bar{display:flex;gap:8px;justify-content:center;align-items:center;margin:0 0 10px;flex-wrap:wrap}' +
+      '.nx-bar button,.nx-bar select{background:#1e2142;color:#f4f5fb;border:1px solid #2a2d54;border-radius:8px;padding:6px 12px;font:600 .85rem inherit;cursor:pointer}' +
+      '.game-stage.nx-fs{position:fixed;inset:0;z-index:9998;max-width:none;width:100vw;height:100vh;border-radius:0;border:0;background:#000;display:flex;align-items:center;justify-content:center}' +
+      '.game-stage.nx-fs canvas{max-width:none}' +
+      '.nx-x{display:none;position:absolute;top:10px;right:10px;z-index:3;background:rgba(0,0,0,.55);color:#fff;border:1px solid #fff5;border-radius:8px;padding:6px 12px;font:700 .9rem inherit;cursor:pointer}' +
+      '.nx-fs .nx-x{display:block}';
+    document.head.appendChild(style);
+    const bar = document.createElement('div');
+    bar.className = 'nx-bar';
+    const fsBtn = document.createElement('button');
+    fsBtn.textContent = '\u26f6 Full screen';
+    bar.appendChild(fsBtn);
+    const sel = document.createElement('select');
+    sel.title = 'Skin'; sel.style.display = 'none';
+    bar.appendChild(sel);
+    stage.parentNode.insertBefore(bar, stage);
+    const xBtn = document.createElement('button');
+    xBtn.className = 'nx-x'; xBtn.textContent = '\u2715 Exit';
+    stage.appendChild(xBtn);
+
+    const canvas = stage.querySelector('canvas');
+    function fit() {
+      if (!canvas) return;
+      if (!stage.classList.contains('nx-fs')) { canvas.style.width = ''; canvas.style.height = ''; return; }
+      const r = canvas.width / canvas.height;
+      let w = innerWidth, h = w / r;
+      if (h > innerHeight) { h = innerHeight; w = h * r; }
+      canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    }
+    function enter() {
+      stage.classList.add('nx-fs');
+      const rf = stage.requestFullscreen || stage.webkitRequestFullscreen;
+      if (rf) { try { const p = rf.call(stage); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+      fit();
+    }
+    function leave() {
+      stage.classList.remove('nx-fs');
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+      }
+      fit();
+    }
+    fsBtn.onclick = () => stage.classList.contains('nx-fs') ? leave() : enter();
+    xBtn.onclick = leave;
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) { stage.classList.remove('nx-fs'); fit(); }
+    }));
+    addEventListener('resize', fit);
+    document.addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') { if (!/INPUT|TEXTAREA/.test((e.target || {}).tagName || '')) fsBtn.onclick(); } });
+
+    // Skin picker (only shows if you own skins).
+    function fillPicker(owned) {
+      set('nx-owned', owned.join('|'));
+      if (!owned.length) { sel.style.display = 'none'; return; }
+      sel.innerHTML = '<option value="">Default skin</option>' + owned.map(n => '<option>' + NexusScore._esc(n) + '</option>').join('');
+      sel.value = owned.includes(get('nx-skin')) ? get('nx-skin') : '';
+      sel.style.display = '';
+      sel.onchange = () => { set('nx-skin', sel.value); sel.blur(); };
+    }
+    fillPicker((get('nx-owned') || '').split('|').filter(Boolean));
+    NexusScore._api('/api/shop/purchases').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      const owned = [...new Set(d.items.map(i => i.item_name).filter(n => SKINS[n]))];
+      fillPicker(owned);
+    }).catch(() => {});
   });
 })();

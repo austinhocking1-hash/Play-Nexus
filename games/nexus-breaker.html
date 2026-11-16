@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Breaker — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="Smash every brick with the ball. Move the paddle with your mouse, finger or arrow keys, and clear levels to keep scoring.">
+<meta property="og:title" content="Nexus Breaker — Play Nexus">
+<meta property="og:description" content="Smash every brick with the ball. Move the paddle with your mouse, finger or arrow keys, and clear levels to keep scoring.">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/nexus-breaker.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Nexus <span>Breaker</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="420"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Nexus Breaker</h2>
+    <p>Smash every brick with the ball. Move the paddle with your mouse, finger or arrow keys, and clear levels to keep scoring.</p>
+    <button class="btn" id="startBtn">Start Breaking</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Lives: <b id="livesEl">3</b></span>
+  <span>Level: <b id="levelEl">1</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Mouse / Touch / Arrow keys to move, Space or tap to launch</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Nexus Breaker';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+const COLS = 10, ROWS = 5, BW = 58, BH = 20, BG = 4, TOP = 50;
+const ROWC = ['#ff5c9e', '#ff9f1c', '#ffe27a', '#4ade80', '#2fd0ff'];
+let paddle, ball, bricks, score, lives, level, running, animId, lastT, launched, keys = {};
+let best = Number(localStorage.getItem('breaker-best') || 0);
+$('bestEl').textContent = best;
+function buildBricks() {
+  bricks = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+    bricks.push({ x: 10 + c * (BW + BG), y: TOP + r * (BH + BG), r, alive: true });
+}
+function serve() {
+  launched = false;
+  ball = { x: paddle.x, y: H - 40, vx: 0, vy: 0, r: 7 };
+}
+function launch() {
+  if (!running || launched) return;
+  launched = true;
+  const sp = 5 + level * 0.6, a = (-60 - Math.random() * 60) * Math.PI / 180;
+  ball.vx = Math.cos(a) * sp; ball.vy = Math.sin(a) * sp;
+}
+function start() {
+  msg.classList.add('hidden');
+  paddle = { x: W / 2, w: 96, h: 12 };
+  score = 0; lives = 3; level = 1; buildBricks(); serve();
+  running = true; lastT = 0; hud();
+  cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function hud() { $('scoreEl').textContent = score; $('livesEl').textContent = lives; $('levelEl').textContent = level; }
+function step(k) {
+  if (keys.ArrowLeft || keys.a) paddle.x -= 8 * k;
+  if (keys.ArrowRight || keys.d) paddle.x += 8 * k;
+  paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, paddle.x));
+  if (!launched) { ball.x = paddle.x; ball.y = H - 40; return; }
+  ball.x += ball.vx * k; ball.y += ball.vy * k;
+  if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+  if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+  if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
+  const py = H - 28;
+  if (ball.vy > 0 && ball.y + ball.r >= py && ball.y + ball.r <= py + 14 && Math.abs(ball.x - paddle.x) < paddle.w / 2 + ball.r) {
+    const sp = Math.hypot(ball.vx, ball.vy), off = (ball.x - paddle.x) / (paddle.w / 2);
+    const a = (-90 + off * 62) * Math.PI / 180;
+    ball.vx = Math.cos(a) * sp; ball.vy = Math.sin(a) * sp; ball.y = py - ball.r;
+    NexusScore.tone(330, 0, 0.05, 'square', 0.04);
+  }
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + BW && ball.y + ball.r > b.y && ball.y - ball.r < b.y + BH) {
+      b.alive = false;
+      const ox = Math.min(ball.x + ball.r - b.x, b.x + BW - (ball.x - ball.r));
+      const oy = Math.min(ball.y + ball.r - b.y, b.y + BH - (ball.y - ball.r));
+      if (ox < oy) ball.vx = -ball.vx; else ball.vy = -ball.vy;
+      score += (ROWS - b.r) * 10 * level; hud();
+      NexusScore.tone(500 + (ROWS - b.r) * 90, 0, 0.06, 'triangle', 0.05);
+      break;
+    }
+  }
+  if (!bricks.some(b => b.alive)) { level++; buildBricks(); serve(); hud(); NexusScore.tone(880, 0, 0.2, 'sine', 0.06); return; }
+  if (ball.y > H + 10) {
+    lives--; hud();
+    if (lives <= 0) return end();
+    serve();
+  }
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#171933'); g.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const b of bricks) if (b.alive) { ctx.fillStyle = ROWC[b.r]; ctx.fillRect(b.x, b.y, BW, BH); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(b.x, b.y, BW, 5); }
+  const s = NexusScore.skin(), pg = ctx.createLinearGradient(paddle.x - paddle.w / 2, 0, paddle.x + paddle.w / 2, 0);
+  pg.addColorStop(0, s[0]); pg.addColorStop(1, s[1]);
+  ctx.fillStyle = pg; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(paddle.x - paddle.w / 2, H - 28, paddle.w, paddle.h, 6) : ctx.rect(paddle.x - paddle.w / 2, H - 28, paddle.w, paddle.h); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, 7); ctx.fill();
+  if (!launched) { ctx.fillStyle = '#a7abc9'; ctx.font = '600 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Tap or press Space to launch', W / 2, H - 70); }
+}
+function loop(t) {
+  if (!running) return;
+  const k = Math.min(2, lastT ? (t - lastT) / 16.67 : 1); lastT = t;
+  step(k); if (!running) return; draw();
+  animId = requestAnimationFrame(loop);
+}
+function end() {
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('breaker-best', best); $('bestEl').textContent = best; }
+  showEnd('Game Over', 'You scored <b>' + score + '</b> and reached level <b>' + level + '</b>. Best: <b>' + best + '</b>', 'Play Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+addEventListener('keydown', e => { keys[e.key] = true; if (e.key === ' ') { e.preventDefault(); launch(); } if (e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => { keys[e.key] = false; });
+function move(e) { if (!paddle) return; const r = canvas.getBoundingClientRect(); paddle.x = Math.max(paddle.w / 2, Math.min(W - paddle.w / 2, (e.clientX - r.left) * (W / r.width))); }
+canvas.addEventListener('pointermove', move);
+canvas.addEventListener('pointerdown', e => { move(e); launch(); });
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/nexus-breaker/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

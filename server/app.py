@@ -649,7 +649,8 @@ def claim_daily():
 # ---------- weekly prize ----------
 
 SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
-                  'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush']
+                  'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush',
+                  'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge']
 
 
 @app.get('/api/weekly')
@@ -718,6 +719,9 @@ def redeem_item(item_id):
     item = db.execute('SELECT * FROM shop_items WHERE id = ?', (item_id,)).fetchone()
     if not item:
         return jsonify(error='Item not found.'), 404
+    if item['category'] in ('Skin', 'Badge', 'Theme') and db.execute(
+            'SELECT 1 FROM purchases WHERE user_id = ? AND item_id = ?', (user['id'], item['id'])).fetchone():
+        return jsonify(error='You already own this.'), 400
     if user['nexbucks'] < item['price']:
         return jsonify(error='Not enough NexBucks.'), 400
 

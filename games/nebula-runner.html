@@ -85,8 +85,8 @@ function drawShip() {
   ctx.save();
   ctx.translate(ship.x, ship.y);
   const grad = ctx.createLinearGradient(-17, -17, 17, 17);
-  grad.addColorStop(0, '#2fd0ff');
-  grad.addColorStop(1, '#c026ff');
+  grad.addColorStop(0, NexusScore.skin()[0]);
+  grad.addColorStop(1, NexusScore.skin()[1]);
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.moveTo(0, -18);

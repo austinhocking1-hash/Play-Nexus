@@ -215,7 +215,7 @@ async function renderShop() {
         <div class="shop-thumb thumb-${(i % 4) + 1}" style="background:url(art/shop/${['skin','boost','badge','theme'].includes(String(s.category).toLowerCase()) ? String(s.category).toLowerCase() : 'default'}.svg) center/cover, #1e2142"></div>
         <span class="shop-tag">${escapeHtml(s.category)}</span>
         <h3>${escapeHtml(s.name)}</h3>
-        <p>Redeemable with NexBucks earned from playing.</p>
+        <p>${String(s.category).toLowerCase() === 'skin' ? 'Recolours your player in every game. Pick it from the skin menu above any game.' : 'Redeemable with NexBucks earned from playing.'}</p>
         <div class="shop-footer">
           <span class="shop-price">🪙 ${Number(s.price).toLocaleString()}</span>
           <button class="btn btn-small" data-redeem="${s.id}">Redeem</button>

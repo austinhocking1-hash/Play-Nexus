@@ -52,5 +52,29 @@
     "genre": "Action",
     "status": "Live",
     "slug": "boss-rush"
+  },
+  {
+    "title": "Nexus Breaker",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "nexus-breaker"
+  },
+  {
+    "title": "Neon Snake",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "neon-snake"
+  },
+  {
+    "title": "Flap Nexus",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "flap-nexus"
+  },
+  {
+    "title": "Tile Merge",
+    "genre": "Puzzle",
+    "status": "Live",
+    "slug": "tile-merge"
   }
 ]

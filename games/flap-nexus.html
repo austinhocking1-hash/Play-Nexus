@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flap Nexus — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="Tap to flap and squeeze through the gaps. One touch and it is over, so how far can you fly?">
+<meta property="og:title" content="Flap Nexus — Play Nexus">
+<meta property="og:description" content="Tap to flap and squeeze through the gaps. One touch and it is over, so how far can you fly?">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/flap-nexus.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Flap <span>Nexus</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="400" height="600"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Flap Nexus</h2>
+    <p>Tap to flap and squeeze through the gaps. One touch and it is over, so how far can you fly?</p>
+    <button class="btn" id="startBtn">Start Flying</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Space / Up Arrow / Tap to flap</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Flap Nexus';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+const GAP = 160, PW = 56;
+let bird, pipes, score, running, animId, lastT, spawn;
+let best = Number(localStorage.getItem('flap-best') || 0);
+$('bestEl').textContent = best;
+function start() {
+  msg.classList.add('hidden');
+  bird = { x: 110, y: H / 2, vy: 0, r: 14 }; pipes = []; score = 0; spawn = 0; lastT = 0; running = true;
+  $('scoreEl').textContent = 0; flap();
+  cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function flap() { if (running) { bird.vy = -7.2; NexusScore.tone(620, 0, 0.05, 'sine', 0.04); } }
+function loop(t) {
+  if (!running) return;
+  const k = Math.min(2, lastT ? (t - lastT) / 16.67 : 1); lastT = t;
+  bird.vy += 0.42 * k; bird.y += bird.vy * k;
+  spawn += k;
+  if (spawn > 95) { spawn = 0; pipes.push({ x: W + 10, gy: 110 + Math.random() * (H - 220 - GAP + 60), passed: false }); }
+  const sp = 3 + Math.min(2, score / 40);
+  for (const p of pipes) {
+    p.x -= sp * k;
+    if (!p.passed && p.x + PW < bird.x) { p.passed = true; score++; $('scoreEl').textContent = score; NexusScore.tone(760, 0, 0.07, 'triangle', 0.05); }
+    if (bird.x + bird.r > p.x && bird.x - bird.r < p.x + PW && (bird.y - bird.r < p.gy || bird.y + bird.r > p.gy + GAP)) return end();
+  }
+  pipes = pipes.filter(p => p.x > -PW - 5);
+  if (bird.y + bird.r > H - 20 || bird.y - bird.r < 0) return end();
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1b1e4a'); g.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#2a2d54'; ctx.fillRect(0, H - 20, W, 20);
+  for (const p of pipes) {
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(p.x, 0, PW, p.gy); ctx.fillRect(p.x, p.gy + GAP, PW, H - p.gy - GAP - 20);
+    ctx.fillStyle = '#22b35f'; ctx.fillRect(p.x - 4, p.gy - 18, PW + 8, 18); ctx.fillRect(p.x - 4, p.gy + GAP, PW + 8, 18);
+  }
+  const s = NexusScore.skin(), bg = ctx.createLinearGradient(bird.x - 14, bird.y - 14, bird.x + 14, bird.y + 14);
+  bg.addColorStop(0, s[0]); bg.addColorStop(1, s[1]);
+  ctx.save(); ctx.translate(bird.x, bird.y); ctx.rotate(Math.max(-0.5, Math.min(1, bird.vy / 12)));
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, bird.r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(5, -4, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#0a0b16'; ctx.beginPath(); ctx.arc(6, -4, 2, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffb84c'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(20, 3); ctx.lineTo(10, 6); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#fff'; ctx.font = '800 40px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(score, W / 2, 60);
+  animId = requestAnimationFrame(loop);
+}
+function end() {
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('flap-best', best); $('bestEl').textContent = best; }
+  showEnd('Splat!', 'You flew through <b>' + score + '</b> gaps. Best: <b>' + best + '</b>', 'Flap Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'ArrowUp') && running) { e.preventDefault(); flap(); } });
+canvas.addEventListener('pointerdown', flap);
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/flap-nexus/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

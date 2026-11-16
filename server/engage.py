@@ -7,17 +7,21 @@ from flask import jsonify, request
 
 SLUGS = {'Nexus Chomper': 'nexus-chomper', 'Penalty Shootout': 'penalty-shootout', 'Boss Battle': 'boss-battle',
          'Boss Rush': 'boss-rush', 'Nebula Runner': 'nebula-runner', 'Castle Siege': 'castle-siege',
-         'Pixel Sprint': 'pixel-sprint', 'Space Race': 'space-race', 'Puzzle Forge': 'puzzle-forge'}
+         'Pixel Sprint': 'pixel-sprint', 'Space Race': 'space-race', 'Puzzle Forge': 'puzzle-forge',
+         'Nexus Breaker': 'nexus-breaker', 'Neon Snake': 'neon-snake', 'Flap Nexus': 'flap-nexus', 'Tile Merge': 'tile-merge'}
 GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
-         'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush']
+         'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush',
+         'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge']
 
 DAILY_TARGETS = {
     'Nexus Chomper': 800, 'Penalty Shootout': 400, 'Boss Battle': 1000, 'Nebula Runner': 150,
     'Castle Siege': 150, 'Pixel Sprint': 200, 'Space Race': 100, 'Puzzle Forge': 600, 'Boss Rush': 2400,
+    'Nexus Breaker': 1500, 'Neon Snake': 150, 'Flap Nexus': 10, 'Tile Merge': 2000,
 }
 SCORE_CAPS = {
     'Nexus Chomper': 100000, 'Penalty Shootout': 500, 'Boss Battle': 3000, 'Nebula Runner': 50000,
     'Castle Siege': 50000, 'Pixel Sprint': 50000, 'Space Race': 50000, 'Puzzle Forge': 1000, 'Boss Rush': 4000,
+    'Nexus Breaker': 50000, 'Neon Snake': 6000, 'Flap Nexus': 1000, 'Tile Merge': 500000,
 }
 DAILY_BONUS = 100
 WEEK = timedelta(days=7)
@@ -26,7 +30,7 @@ BADGES = {
     'first_game': ('First Steps', '🎮', 'Finish your first game'),
     'plays_10': ('Regular', '🔁', 'Finish 10 games'),
     'plays_50': ('Dedicated', '🔥', 'Finish 50 games'),
-    'all_rounder': ('All-Rounder', '🌈', 'Play all 8 games'),
+    'all_rounder': ('All-Rounder', '🌈', 'Play every game'),
     'streak_3': ('3-Day Streak', '📅', 'Claim daily rewards 3 days in a row'),
     'streak_7': ('Week Warrior', '⚡', 'Claim daily rewards 7 days in a row'),
     'streak_30': ('Unstoppable', '👑', 'Claim daily rewards 30 days in a row'),
