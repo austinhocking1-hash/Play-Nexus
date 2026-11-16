@@ -13,6 +13,7 @@ from db import get_db, close_db, init_db, now, DB_PATH
 import autofix
 import gamegen
 import engage
+import backup
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -761,7 +762,9 @@ def static_files(path):
     return send_from_directory(ROOT_DIR, path, max_age=0)
 
 
+backup.restore_if_needed(DB_PATH)
 init_db(app)
+backup.start(DB_PATH)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))
