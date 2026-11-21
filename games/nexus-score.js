@@ -227,7 +227,7 @@ window.NexusScore = {
   const GAMES = { 'nexus-chomper': 'Nexus Chomper', 'penalty-shootout': 'Penalty Shootout', 'boss-battle': 'Boss Battle',
     'nebula-runner': 'Nebula Runner', 'castle-siege': 'Castle Siege', 'pixel-sprint': 'Pixel Sprint',
     'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge', 'boss-rush': 'Boss Rush',
-    'nexus-breaker': 'Nexus Breaker', 'neon-snake': 'Neon Snake', 'flap-nexus': 'Flap Nexus', 'tile-merge': 'Tile Merge', 'nexus-farm': 'Nexus Farm' };
+    'nexus-breaker': 'Nexus Breaker', 'neon-snake': 'Neon Snake', 'flap-nexus': 'Flap Nexus', 'tile-merge': 'Tile Merge' };
   const slug = location.pathname.split('/').pop().replace('.html', '');
   document.addEventListener('DOMContentLoaded', () => {
     if (GAMES[slug] && document.getElementById('msg')) {
