@@ -35,7 +35,7 @@
 </div>
 
 <div class="hud">
-  <span>Coins: <b id="scoreEl">1000</b></span>
+  <span>Coins: <b id="scoreEl">50</b></span>
   <span>Total earned: <b id="totalEl">0</b></span>
   <span>Stars: <b id="starEl">0</b></span>
 </div>
@@ -67,13 +67,12 @@ const CROPS = [
 ];
 const MAXP = 16, KEY = 'nexfarm-v1';
 function fresh(stars, total) {
-  return { coins: 1000, run: 0, total: total || 0, stars: stars || 0, owned: 4, hands: 0, speed: 0, price: 0, sel: 0,
+  return { coins: 50, run: 0, total: total || 0, stars: stars || 0, owned: 4, hands: 0, speed: 0, price: 0, sel: 0,
     unl: [true, false, false, false, false], plots: Array.from({ length: MAXP }, () => ({ c: -1, t: 0 })) };
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
 if (!S || !S.plots) S = fresh();
-if (S.total === 0 && S.coins === 50) S.coins = 1000; // farms started before the 1,000-coin gift
 let boom = null, nextBoom = Date.now() + 45000, handT = 0, started = false, flash = '';
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : Math.floor(n).toLocaleString();
@@ -153,7 +152,7 @@ function render() {
 function prestige() {
   if (S.run < 5000) return;
   const add = Math.max(1, Math.floor(Math.sqrt(S.run / 2500)));
-  if (!confirm('Sell the farm for ' + add + ' star(s)? You restart with 1,000 coins but earn +25% per star forever.')) return;
+  if (!confirm('Sell the farm for ' + add + ' star(s)? You restart with 50 coins but earn +25% per star forever.')) return;
   S = fresh(S.stars + add, S.total); save(); NexusScore.confetti(); render();
 }
 function submitScore() {
