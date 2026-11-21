@@ -275,6 +275,8 @@ def init_db(app):
         for nm, cat, pr in DEFAULT_SHOP:
             if not db.execute('SELECT 1 FROM shop_items WHERE name = ?', (nm,)).fetchone():
                 db.execute('INSERT INTO shop_items (name, category, price) VALUES (?, ?, ?)', (nm, cat, pr))
+        # Broken AI-generated "Farm collection" / "Farm run" entries: remove every copy.
+        db.execute("DELETE FROM games WHERE slug IN ('farm-collection', 'farm-run')")
         # Purge the old fake seed scores (only those with no real user behind them).
         db.execute('DELETE FROM leaderboard WHERE user_id IS NULL AND player_name IN (%s)'
                    % ','.join('?' * len(FAKE_NAMES)), FAKE_NAMES)
