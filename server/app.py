@@ -650,7 +650,8 @@ def claim_daily():
 
 SCORING_GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
                   'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush',
-                  'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge', 'Nexus Farm']
+                  'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge', 'Nexus Farm',
+                  'Stack Tower', 'Hop Nexus', 'Reflex Rush']
 
 
 @app.get('/api/weekly')

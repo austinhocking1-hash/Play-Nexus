@@ -8,20 +8,23 @@ from flask import jsonify, request
 SLUGS = {'Nexus Chomper': 'nexus-chomper', 'Penalty Shootout': 'penalty-shootout', 'Boss Battle': 'boss-battle',
          'Boss Rush': 'boss-rush', 'Nebula Runner': 'nebula-runner', 'Castle Siege': 'castle-siege',
          'Pixel Sprint': 'pixel-sprint', 'Space Race': 'space-race', 'Puzzle Forge': 'puzzle-forge',
-         'Nexus Breaker': 'nexus-breaker', 'Neon Snake': 'neon-snake', 'Flap Nexus': 'flap-nexus', 'Tile Merge': 'tile-merge', 'Nexus Farm': 'nexus-farm'}
+         'Nexus Breaker': 'nexus-breaker', 'Neon Snake': 'neon-snake', 'Flap Nexus': 'flap-nexus', 'Tile Merge': 'tile-merge', 'Nexus Farm': 'nexus-farm',
+         'Stack Tower': 'stack-tower', 'Hop Nexus': 'hop-nexus', 'Reflex Rush': 'reflex-rush'}
 GAMES = ['Nexus Chomper', 'Penalty Shootout', 'Boss Battle', 'Nebula Runner',
          'Castle Siege', 'Pixel Sprint', 'Space Race', 'Puzzle Forge', 'Boss Rush',
-         'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge', 'Nexus Farm']
+         'Nexus Breaker', 'Neon Snake', 'Flap Nexus', 'Tile Merge', 'Nexus Farm', 'Stack Tower', 'Hop Nexus', 'Reflex Rush']
 
 DAILY_TARGETS = {
     'Nexus Chomper': 800, 'Penalty Shootout': 400, 'Boss Battle': 1000, 'Nebula Runner': 150,
     'Castle Siege': 150, 'Pixel Sprint': 200, 'Space Race': 100, 'Puzzle Forge': 600, 'Boss Rush': 2400,
     'Nexus Breaker': 1500, 'Neon Snake': 150, 'Flap Nexus': 10, 'Tile Merge': 2000, 'Nexus Farm': 20000,
+    'Stack Tower': 25, 'Hop Nexus': 40, 'Reflex Rush': 1500,
 }
 SCORE_CAPS = {
     'Nexus Chomper': 100000, 'Penalty Shootout': 500, 'Boss Battle': 3000, 'Nebula Runner': 50000,
     'Castle Siege': 50000, 'Pixel Sprint': 50000, 'Space Race': 50000, 'Puzzle Forge': 1000, 'Boss Rush': 4000,
     'Nexus Breaker': 50000, 'Neon Snake': 6000, 'Flap Nexus': 1000, 'Tile Merge': 500000, 'Nexus Farm': 2000000,
+    'Stack Tower': 3000, 'Hop Nexus': 3000, 'Reflex Rush': 30000,
 }
 DAILY_BONUS = 100
 WEEK = timedelta(days=7)

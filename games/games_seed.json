@@ -82,5 +82,23 @@
     "genre": "Tycoon",
     "status": "Live",
     "slug": "nexus-farm"
+  },
+  {
+    "title": "Stack Tower",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "stack-tower"
+  },
+  {
+    "title": "Hop Nexus",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "hop-nexus"
+  },
+  {
+    "title": "Reflex Rush",
+    "genre": "Arcade",
+    "status": "Live",
+    "slug": "reflex-rush"
   }
 ]

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reflex Rush — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="Tap the glowing orbs before their rings close in. Chain hits for a combo, miss three and it is over. It gets faster the longer you last.">
+<meta property="og:title" content="Reflex Rush — Play Nexus">
+<meta property="og:description" content="Tap the glowing orbs before their rings close in. Chain hits for a combo, miss three and it is over. It gets faster the longer you last.">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/reflex-rush.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Reflex <span>Rush</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="480" height="480"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Reflex Rush</h2>
+    <p>Tap the glowing orbs before their rings close in. Chain hits for a combo, miss three and it is over. It gets faster the longer you last.</p>
+    <button class="btn" id="startBtn">Start Rushing</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Lives: <b id="livesEl">❤❤❤</b></span>
+  <span>Combo: <b id="comboEl">x1</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Tap or click the orbs</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Reflex Rush';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+let targets, parts, score, lives, combo, running, animId, lastSpawn, startT, maxCombo, best = Number(localStorage.getItem('reflex-best') || 0);
+$('bestEl').textContent = best;
+const COLS = ['#ff5c9e', '#2fd0ff', '#ffe27a', '#4ade80', '#b46cff', '#ff9f1c'];
+function start() {
+  msg.classList.add('hidden');
+  targets = []; parts = []; score = 0; lives = 3; combo = 0; maxCombo = 0; lastSpawn = 0; startT = performance.now(); running = true;
+  hud(); cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function hud() { $('scoreEl').textContent = score; $('livesEl').textContent = '❤'.repeat(Math.max(0, lives)); $('comboEl').textContent = 'x' + Math.max(1, combo); }
+function spawn(now) {
+  const r = 26 + Math.random() * 14, life = Math.max(600, 1500 - score * 0.45);
+  for (let tries = 0; tries < 10; tries++) {
+    const x = r + 8 + Math.random() * (W - 2 * r - 16), y = r + 8 + Math.random() * (H - 2 * r - 16);
+    if (!targets.some(t => Math.hypot(t.x - x, t.y - y) < t.r + r + 10)) { targets.push({ x, y, r, born: now, life, c: COLS[(Math.random() * COLS.length) | 0] }); return; }
+  }
+}
+function burst(x, y, c) { for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, s = 1 + Math.random() * 3; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, l: 1, c }); } }
+function hit(e) {
+  if (!running) return;
+  const rc = canvas.getBoundingClientRect(), x = (e.clientX - rc.left) * (W / rc.width), y = (e.clientY - rc.top) * (H / rc.height);
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const t = targets[i];
+    if (Math.hypot(t.x - x, t.y - y) <= t.r * 1.25) {
+      const age = (performance.now() - t.born) / t.life;
+      combo++; maxCombo = Math.max(maxCombo, combo);
+      score += Math.round(10 + combo * 2 + (1 - age) * 10);
+      burst(t.x, t.y, t.c); targets.splice(i, 1); hud();
+      NexusScore.tone(400 + Math.min(combo, 20) * 35, 0, 0.07, 'triangle', 0.05);
+      return;
+    }
+  }
+  combo = 0; hud();
+}
+function loop(now) {
+  if (!running) return;
+  const gap = Math.max(330, 900 - score * 0.1);
+  if (now - lastSpawn > gap) { lastSpawn = now; spawn(now); if (score > 400 && Math.random() < 0.2) spawn(now); }
+  for (let i = targets.length - 1; i >= 0; i--) {
+    if (now - targets[i].born > targets[i].life) {
+      burst(targets[i].x, targets[i].y, '#888'); targets.splice(i, 1); lives--; combo = 0; hud();
+      NexusScore.tone(120, 0, 0.2, 'sawtooth', 0.06);
+      if (lives <= 0) return end();
+    }
+  }
+  const g = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W * 0.75);
+  g.addColorStop(0, '#1b1e4a'); g.addColorStop(1, '#0a0b16');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const t of targets) {
+    const f = (now - t.born) / t.life;
+    ctx.strokeStyle = t.c; ctx.globalAlpha = 0.5; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, t.r + (1 - f) * t.r * 1.2, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.fillStyle = t.c; ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(t.x - t.r * 0.3, t.y - t.r * 0.3, t.r * 0.3, 0, 7); ctx.fill();
+  }
+  for (const p of parts) { p.x += p.vx; p.y += p.vy; p.l -= 0.04; }
+  parts = parts.filter(p => p.l > 0);
+  for (const p of parts) { ctx.globalAlpha = p.l; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 4, 4); }
+  ctx.globalAlpha = 1;
+  animId = requestAnimationFrame(loop);
+}
+function end() {
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('reflex-best', best); $('bestEl').textContent = best; }
+  showEnd('Out of lives', 'You scored <b>' + score + '</b> with a best combo of <b>x' + maxCombo + '</b>. Best: <b>' + best + '</b>', 'Try Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+canvas.addEventListener('pointerdown', hit);
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/reflex-rush/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

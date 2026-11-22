@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hop Nexus — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="Hop across roads and rivers without getting squashed or soaked. Ride the logs, dodge the cars and keep moving, because standing still is not safe.">
+<meta property="og:title" content="Hop Nexus — Play Nexus">
+<meta property="og:description" content="Hop across roads and rivers without getting squashed or soaked. Ride the logs, dodge the cars and keep moving, because standing still is not safe.">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/hop-nexus.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Hop <span>Nexus</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="400" height="560"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Hop Nexus</h2>
+    <p>Hop across roads and rivers without getting squashed or soaked. Ride the logs, dodge the cars and keep moving, because standing still is not safe.</p>
+    <button class="btn" id="startBtn">Start Hopping</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Lanes: <b id="scoreEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Tap or Up to hop forward, swipe or Left/Right to sidestep</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Hop Nexus';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+const T = 40, COLS = 10;
+let lanes, pl, camRow, score, running, animId, lastT, riverRun, moved, hopT;
+let best = Number(localStorage.getItem('hop-best') || 0);
+$('bestEl').textContent = best;
+const rnd = (a, b) => a + Math.random() * (b - a);
+function laneAt(r) {
+  if (lanes[r]) return lanes[r];
+  let type = 'grass';
+  if (r >= 3) { const x = Math.random(); type = x < 0.3 ? 'grass' : x < 0.72 ? 'road' : 'river'; if (type === 'river' && riverRun >= 2) type = 'grass'; }
+  riverRun = type === 'river' ? riverRun + 1 : 0;
+  const L = { type, dir: Math.random() < 0.5 ? 1 : -1, objs: [], trees: [] };
+  const lvl = Math.min(1.5, r / 60);
+  L.sp = L.dir * (type === 'road' ? rnd(1.0, 2.2) + lvl : rnd(0.7, 1.5) + lvl / 2);
+  if (type === 'grass') { if (r > 1) for (let c = 0; c < COLS; c++) if (c !== 5 && Math.random() < 0.2) L.trees.push(c); }
+  else {
+    const w = type === 'road' ? rnd(46, 70) : rnd(90, 150), gap = type === 'road' ? rnd(120, 230) : rnd(70, 130);
+    for (let x = rnd(-50, 40); x < W + 160; x += w + gap) L.objs.push({ x, w, c: ['#ff5c5c', '#ffb84c', '#2fd0ff', '#b46cff'][(Math.random() * 4) | 0] });
+    L.span = W + 160;
+  }
+  return (lanes[r] = L);
+}
+function start() {
+  msg.classList.add('hidden');
+  lanes = {}; riverRun = 0; for (let r = -3; r < 3; r++) lanes[r] = { type: 'grass', dir: 1, sp: 0, objs: [], trees: [] };
+  pl = { x: 5 * T, r: 0 }; camRow = 0; score = 0; moved = false; hopT = 0; lastT = 0; running = true;
+  $('scoreEl').textContent = 0;
+  cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function hop(dc, dr) {
+  if (!running) return;
+  const nr = pl.r + dr, nx = pl.x + dc * T;
+  if (nx < 0 || nx > W - T) return;
+  const L = laneAt(nr);
+  if (L.type === 'grass' && L.trees.includes(Math.round(nx / T))) return;
+  pl.x = nx; pl.r = nr; hopT = 8; moved = true;
+  if (nr > score) { score = nr; $('scoreEl').textContent = score; }
+  if (dc === 0) NexusScore.tone(400 + (nr % 8) * 30, 0, 0.04, 'square', 0.03);
+}
+function yOf(r) { return H - 90 - (r - camRow) * T; }
+function die(why) {
+  if (!running) return;
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('hop-best', best); $('bestEl').textContent = best; }
+  showEnd(why, 'You hopped <b>' + score + '</b> lanes. Best: <b>' + best + '</b>', 'Hop Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+function loop(t) {
+  if (!running) return;
+  const k = Math.min(2, lastT ? (t - lastT) / 16.67 : 1); lastT = t;
+  if (hopT > 0) hopT -= k;
+  camRow = Math.max(camRow, pl.r - 4);
+  if (moved) camRow += (0.004 + Math.min(0.012, score * 0.00008)) * k;
+  const lo = Math.floor(camRow) - 3, hi = Math.ceil(camRow) + 16;
+  for (let r = lo; r <= hi; r++) {
+    const L = laneAt(r);
+    for (const o of L.objs) {
+      o.x += L.sp * k;
+      if (L.sp > 0 && o.x > W + 80) o.x = -o.w - 80; else if (L.sp < 0 && o.x + o.w < -80) o.x = W + 80;
+    }
+  }
+  const PL = laneAt(pl.r);
+  if (PL.type === 'river') {
+    let on = false;
+    for (const o of PL.objs) if (pl.x + T / 2 > o.x && pl.x + T / 2 < o.x + o.w) on = true;
+    if (!on) return die('Splash!');
+    pl.x += PL.sp * k;
+    if (pl.x < -T / 2 || pl.x > W - T / 2) return die('Swept away!');
+  } else if (PL.type === 'road') {
+    for (const o of PL.objs) if (pl.x + 6 < o.x + o.w && pl.x + T - 6 > o.x) return die('Squashed!');
+  }
+  if (pl.r < camRow - 1.6) return die('Too slow!');
+  ctx.fillStyle = '#0a0b16'; ctx.fillRect(0, 0, W, H);
+  for (let r = hi; r >= lo; r--) {
+    const L = laneAt(r), y = yOf(r);
+    if (y < -T || y > H + T) continue;
+    ctx.fillStyle = L.type === 'grass' ? (r % 2 ? '#3fae5a' : '#47b863') : L.type === 'road' ? '#34374f' : '#2a7fd6';
+    ctx.fillRect(0, y, W, T);
+    if (L.type === 'road') { ctx.fillStyle = 'rgba(255,255,255,.25)'; for (let x = 0; x < W; x += 50) ctx.fillRect(x, y + T / 2 - 1, 26, 3); }
+    for (const c of L.trees) { ctx.font = '32px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('\u{1F332}', c * T + T / 2, y + T / 2 + 2); }
+    for (const o of L.objs) {
+      if (L.type === 'river') { ctx.fillStyle = '#8a5a2c'; ctx.fillRect(o.x, y + 6, o.w, T - 12); ctx.fillStyle = '#a8743c'; ctx.fillRect(o.x, y + 6, o.w, 6); }
+      else { ctx.fillStyle = o.c; ctx.fillRect(o.x, y + 8, o.w, T - 16); ctx.fillStyle = '#d8f3ff'; const fx = L.sp > 0 ? o.x + o.w - 16 : o.x + 6; ctx.fillRect(fx, y + 11, 10, T - 22); ctx.fillStyle = '#000'; ctx.fillRect(o.x + 6, y + T - 10, 10, 4); ctx.fillRect(o.x + o.w - 16, y + T - 10, 10, 4); }
+    }
+  }
+  const s = NexusScore.skin(), py = yOf(pl.r) - (hopT > 0 ? 6 : 0), gr = ctx.createLinearGradient(pl.x, py, pl.x + T, py + T);
+  gr.addColorStop(0, s[0]); gr.addColorStop(1, s[1]);
+  ctx.fillStyle = gr; ctx.fillRect(pl.x + 6, py + 6, T - 12, T - 12);
+  ctx.fillStyle = '#fff'; ctx.fillRect(pl.x + 22, py + 12, 7, 7); ctx.fillStyle = '#111'; ctx.fillRect(pl.x + 25, py + 14, 3, 3);
+  ctx.fillStyle = '#ffb84c'; ctx.fillRect(pl.x + 28, py + 22, 8, 5);
+  animId = requestAnimationFrame(loop);
+}
+addEventListener('keydown', e => {
+  const m = { ArrowUp: [0, 1], w: [0, 1], ' ': [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0], ArrowDown: [0, -1], s: [0, -1] }[e.key];
+  if (m && running) { e.preventDefault(); hop(m[0], m[1]); }
+});
+let hx, hy;
+canvas.addEventListener('pointerdown', e => { hx = e.clientX; hy = e.clientY; });
+canvas.addEventListener('pointerup', e => {
+  if (hx == null) return;
+  const dx = e.clientX - hx, dy = e.clientY - hy; hx = null;
+  if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) hop(Math.sign(dx), 0);
+  else if (dy > 28) hop(0, -1);
+  else hop(0, 1);
+});
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/hop-nexus/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

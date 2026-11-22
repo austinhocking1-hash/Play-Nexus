@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stack Tower — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="Tap to drop the sliding block and build the tallest tower you can. Land blocks dead centre for PERFECT combos that make your tower wider.">
+<meta property="og:title" content="Stack Tower — Play Nexus">
+<meta property="og:description" content="Tap to drop the sliding block and build the tallest tower you can. Land blocks dead centre for PERFECT combos that make your tower wider.">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/stack-tower.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Stack <span>Tower</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="400" height="600"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Stack Tower</h2>
+    <p>Tap to drop the sliding block and build the tallest tower you can. Land blocks dead centre for PERFECT combos that make your tower wider.</p>
+    <button class="btn" id="startBtn">Start Stacking</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Space / Tap to drop the block</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Stack Tower';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+const BH = 26;
+let blocks, cur, score, streak, running, animId, lastT, cam, debris, flashT, best = Number(localStorage.getItem('stack-best') || 0);
+$('bestEl').textContent = best;
+const col = i => 'hsl(' + ((i * 13) % 360) + ',78%,58%)';
+function newCur() {
+  const top = blocks[blocks.length - 1], fromLeft = blocks.length % 2 === 0;
+  cur = { x: fromLeft ? -top.w : W, w: top.w, v: fromLeft ? 1 : -1, lvl: blocks.length };
+}
+function start() {
+  msg.classList.add('hidden');
+  blocks = [{ x: (W - 200) / 2, w: 200 }]; score = 0; streak = 0; cam = 0; debris = []; flashT = 0; lastT = 0; running = true;
+  $('scoreEl').textContent = 0; newCur();
+  cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function drop() {
+  if (!running) return;
+  const top = blocks[blocks.length - 1];
+  const left = Math.max(cur.x, top.x), right = Math.min(cur.x + cur.w, top.x + top.w), ov = right - left;
+  if (ov <= 0) { debris.push({ x: cur.x, w: cur.w, y: cur.lvl, vy: 0, c: col(cur.lvl) }); return end(); }
+  if (Math.abs(cur.x - top.x) < 6) {
+    streak++; score += 2; flashT = 40;
+    let nx = top.x, nw = top.w;
+    if (streak >= 3 && nw < 200) { nx -= 5; nw += 10; }
+    blocks.push({ x: nx, w: nw }); NexusScore.tone(520 + streak * 40, 0, 0.12, 'sine', 0.06);
+  } else {
+    streak = 0; score += 1;
+    if (cur.x < top.x) debris.push({ x: cur.x, w: top.x - cur.x, y: cur.lvl, vy: 0, c: col(cur.lvl) });
+    else debris.push({ x: top.x + top.w, w: cur.x + cur.w - (top.x + top.w), y: cur.lvl, vy: 0, c: col(cur.lvl) });
+    blocks.push({ x: left, w: ov }); NexusScore.tone(300, 0, 0.06, 'square', 0.04);
+  }
+  $('scoreEl').textContent = score; newCur();
+}
+function yOf(l) { return H - 70 - l * BH + cam; }
+function loop(t) {
+  if (!running) return;
+  const k = Math.min(2, lastT ? (t - lastT) / 16.67 : 1); lastT = t;
+  const sp = 2.6 + Math.min(6, score * 0.09);
+  cur.x += cur.v * sp * k;
+  if (cur.x <= -cur.w * 0.5 && cur.v < 0) cur.v = 1;
+  if (cur.x >= W - cur.w * 0.5 && cur.v > 0) cur.v = -1;
+  cam += (Math.max(0, (blocks.length - 9) * BH) - cam) * 0.08 * k;
+  for (const d of debris) { d.vy += 0.6 * k; d.y -= d.vy * k / BH; }
+  debris = debris.filter(d => yOf(d.y) < H + 60);
+  if (flashT > 0) flashT -= k;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#14163a'); g.addColorStop(1, '#3b1d6e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  blocks.forEach((b, i) => { ctx.fillStyle = col(i); ctx.fillRect(b.x, yOf(i), b.w, BH - 1); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(b.x, yOf(i), b.w, 5); });
+  for (const d of debris) { ctx.fillStyle = d.c; ctx.fillRect(d.x, yOf(d.y), d.w, BH - 1); }
+  ctx.fillStyle = col(cur.lvl); ctx.fillRect(cur.x, yOf(cur.lvl), cur.w, BH - 1);
+  ctx.fillStyle = '#fff'; ctx.font = '800 44px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(score, W / 2, 60);
+  if (flashT > 0) { ctx.fillStyle = 'rgba(255,226,122,' + flashT / 40 + ')'; ctx.font = '800 26px sans-serif'; ctx.fillText('PERFECT x' + streak, W / 2, 100); }
+  animId = requestAnimationFrame(loop);
+}
+function end() {
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('stack-best', best); $('bestEl').textContent = best; }
+  showEnd('Tower Fell!', 'You stacked <b>' + score + '</b> points. Best: <b>' + best + '</b>', 'Stack Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); drop(); } });
+canvas.addEventListener('pointerdown', drop);
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/stack-tower/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

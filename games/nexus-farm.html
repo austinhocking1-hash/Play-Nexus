@@ -12,9 +12,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Play Nexus">
-<meta name="description" content="Plant crops, harvest them for coins, buy more land and hire farmhands. Sell the farm for permanent bonuses and climb the leaderboard. Your farm saves automatically.">
+<meta name="description" content="A living farm with day and night, rain, thirsty crops, animals and hired farmhands. Plant, water, harvest and sell, then sell the farm for permanent bonuses. Your farm saves automatically.">
 <meta property="og:title" content="Nexus Farm — Play Nexus">
-<meta property="og:description" content="Plant crops, harvest them for coins, buy more land and hire farmhands. Sell the farm for permanent bonuses and climb the leaderboard. Your farm saves automatically.">
+<meta property="og:description" content="A living farm with day and night, rain, thirsty crops, animals and hired farmhands. Plant, water, harvest and sell, then sell the farm for permanent bonuses. Your farm saves automatically.">
 <meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
 <link rel="canonical" href="https://letsplaynexus.online/games/nexus-farm.html">
 </head>
@@ -26,10 +26,10 @@
 </div>
 
 <div class="game-stage">
-  <div id="farm"></div>
+  <canvas id="stage" width="640" height="340"></canvas>
   <div class="game-msg" id="msg">
     <h2>Nexus Farm</h2>
-    <p>Plant crops, harvest them for coins, buy more land and hire farmhands. Sell the farm for permanent bonuses and climb the leaderboard. Your farm saves automatically.</p>
+    <p>A living farm with day and night, rain, thirsty crops, animals and hired farmhands. Plant, water, harvest and sell, then sell the farm for permanent bonuses. Your farm saves automatically.</p>
     <button class="btn" id="startBtn">Start Farming</button>
   </div>
 </div>
@@ -39,13 +39,16 @@
   <span>Total earned: <b id="totalEl">0</b></span>
   <span>Stars: <b id="starEl">0</b></span>
 </div>
-<p class="controls-hint">Controls: Tap or click. Crops keep growing while you are away; farmhands work while this page is open.</p>
+<p class="controls-hint">Controls: Tap an empty plot to plant, tap a growing plot to water it, tap a glowing crop to harvest, tap the pen to collect animal goods.</p>
 <div class="ad-slot"></div>
 <script src="../ads.js"></script>
 
 <script src="../config.js"></script>
 <script src="nexus-score.js"></script>
 <script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
 const msg = document.getElementById('msg');
 const startBtn = document.getElementById('startBtn');
 const $ = id => document.getElementById(id);
@@ -59,102 +62,250 @@ function showEnd(head, text, again) {
 }
 
 const CROPS = [
-  { n: 'Wheat', e: '\u{1F33E}', cost: 5, ms: 6000, sell: 12, unlock: 0 },
-  { n: 'Carrot', e: '\u{1F955}', cost: 20, ms: 14000, sell: 50, unlock: 120 },
-  { n: 'Corn', e: '\u{1F33D}', cost: 60, ms: 30000, sell: 160, unlock: 600 },
-  { n: 'Pumpkin', e: '\u{1F383}', cost: 180, ms: 60000, sell: 520, unlock: 2500 },
-  { n: 'Golden Melon', e: '\u{1F349}', cost: 700, ms: 120000, sell: 2400, unlock: 12000 },
+  { n: 'Wheat', e: '\u{1F33E}', cost: 5, ms: 8000, sell: 12, unlock: 0, col: '#d8c24a' },
+  { n: 'Carrot', e: '\u{1F955}', cost: 20, ms: 18000, sell: 50, unlock: 120, col: '#3fae5a' },
+  { n: 'Corn', e: '\u{1F33D}', cost: 60, ms: 36000, sell: 160, unlock: 600, col: '#6fbf3a' },
+  { n: 'Pumpkin', e: '\u{1F383}', cost: 180, ms: 70000, sell: 520, unlock: 2500, col: '#4c9a2a' },
+  { n: 'Golden Melon', e: '\u{1F349}', cost: 700, ms: 130000, sell: 2400, unlock: 12000, col: '#2f8f4e' },
 ];
-const MAXP = 16, KEY = 'nexfarm-v1';
+const ANIMALS = {
+  chicken: { n: 'Chicken', e: '\u{1F414}', p: '\u{1F95A}', cost: 150, ms: 25000, val: 22, max: 8 },
+  cow: { n: 'Cow', e: '\u{1F404}', p: '\u{1F95B}', cost: 700, ms: 60000, val: 130, max: 6 },
+  sheep: { n: 'Sheep', e: '\u{1F411}', p: '\u{1F9F6}', cost: 2500, ms: 120000, val: 700, max: 4 },
+};
+const AK = Object.keys(ANIMALS), MAXP = 16, KEY = 'nexfarm-v2';
+const PX0 = 16, PY0 = 66, PW = 88, PH = 62, PG = 8, PEN = { x: 424, y: 66, w: 200, h: 270 };
+const plotRect = i => ({ x: PX0 + (i % 4) * (PW + PG), y: PY0 + ((i / 4) | 0) * (PH + PG) });
 function fresh(stars, total) {
-  return { coins: 1000, run: 0, total: total || 0, stars: stars || 0, owned: 4, hands: 0, speed: 0, price: 0, sel: 0,
-    unl: [true, false, false, false, false], plots: Array.from({ length: MAXP }, () => ({ c: -1, t: 0 })) };
+  return { coins: 1000, run: 0, total: total || 0, stars: stars || 0, owned: 4, hands: 0, speed: 0, price: 0, spr: 0, sel: 0,
+    unl: [true, false, false, false, false], plots: Array.from({ length: MAXP }, () => ({ c: -1, g: 0, w: 0.6 })),
+    an: { chicken: 0, cow: 0, sheep: 0 }, prog: { chicken: 0, cow: 0, sheep: 0 }, rdy: { chicken: 0, cow: 0, sheep: 0 }, last: Date.now() };
 }
-let S;
+let S = null;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-if (!S || !S.plots) S = fresh();
-if (S.total === 0 && S.coins === 50) S.coins = 1000; // farms started before the 1,000-coin gift
-let boom = null, nextBoom = Date.now() + 45000, handT = 0, started = false, flash = '';
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+if (!S || !S.plots) {
+  let old = null; try { old = JSON.parse(localStorage.getItem('nexfarm-v1')); } catch (e) {}
+  S = fresh(old && old.stars, old && old.total);
+}
+const idx = [1, 1, 1, 1, 1];
+let boom = null, nextBoom = Date.now() + 45000, started = false, away = '', wx = { rain: false, next: Date.now() + 40000 };
+let hands = [], critters = [], floaters = [], drops = [], lastF = 0, uiSig = '', msgT = 0, note = '';
+const save = () => { S.last = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : Math.floor(n).toLocaleString();
-const growMs = c => CROPS[c].ms * Math.pow(0.9, S.speed);
+const speedRate = () => Math.pow(1.11, S.speed);
 const mult = () => (1 + 0.15 * S.price) * (1 + 0.25 * S.stars);
-const sellVal = c => Math.round(CROPS[c].sell * mult() * (boom && boom.c === c ? 2 : 1));
+const sellVal = c => Math.round(CROPS[c].sell * mult() * idx[c] * (boom && boom.c === c ? 2 : 1));
 const plotCost = () => Math.round(50 * Math.pow(1.7, S.owned - 4));
 const speedCost = () => Math.round(100 * Math.pow(2.2, S.speed));
 const priceCost = () => Math.round(150 * Math.pow(2.2, S.price));
 const handCost = () => Math.round(250 * Math.pow(1.9, S.hands));
-$('farm').innerHTML = '<style>' +
- '#farm{display:flex;flex-wrap:wrap;gap:14px;padding:14px;width:640px;max-width:100%;box-sizing:border-box}' +
- '#fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1 1 300px;align-content:start}' +
- '.fp{aspect-ratio:1;border-radius:12px;border:2px solid #2a2d54;background:#3a2a1a;color:#fff;font-size:1.9rem;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0}' +
- '.fp.lock{background:#171933;color:#a7abc9;font-size:.72rem;font-weight:700;line-height:1.2;text-align:center}' +
- '.fp.rdy{border-color:#ffe27a;box-shadow:0 0 14px #ffe27a88;animation:pls .8s infinite alternate}@keyframes pls{to{transform:scale(1.05)}}' +
- '.fp i{position:absolute;left:0;bottom:0;height:5px;background:#4ade80}' +
- '#fside{flex:1 1 230px;display:flex;flex-direction:column;gap:8px}' +
- '#fside h4{margin:6px 0 0;font-size:.8rem;color:#a7abc9;text-transform:uppercase;letter-spacing:.06em}' +
- '.fb{background:#1e2142;color:#f4f5fb;border:1px solid #2a2d54;border-radius:10px;padding:8px 10px;font:600 .82rem inherit;cursor:pointer;text-align:left;display:flex;justify-content:space-between;gap:8px}' +
- '.fb:disabled{opacity:.45;cursor:not-allowed}.fb.on{border-color:#7c5cff;background:#2b2370}' +
- '#fnote{min-height:1.3em;font-size:.85rem;color:#ffe27a;font-weight:700;text-align:center;width:100%}' +
- '</style><div id="fnote"></div><div id="fgrid"></div><div id="fside"></div>';
-function note(t) { flash = t; $('fnote').textContent = t; clearTimeout(note.t); note.t = setTimeout(() => { flash = ''; render(); }, 3500); }
+const sprCost = () => Math.round(300 * Math.pow(3, S.spr));
+const animCost = k => Math.round(ANIMALS[k].cost * Math.pow(1.35, S.an[k]));
+const phase = () => ((Date.now() / 1000) % 240) / 240;
+const daylight = () => Math.max(0, Math.min(1, (0.5 + 0.5 * Math.sin(phase() * 6.2832)) * 1.5 - 0.15));
 function pay(n) { if (S.coins < n) return false; S.coins -= n; return true; }
 function earn(n) { S.coins += n; S.run += n; S.total += n; }
-function plotClick(i) {
-  if (i >= S.owned) { if (i === S.owned && pay(plotCost())) { S.owned++; NexusScore.tone(440, 0, 0.1, 'triangle', 0.05); } else if (i === S.owned) note('Need \u{1FA99} ' + fmt(plotCost()) + ' for a new plot'); return render(); }
-  const p = S.plots[i];
-  if (p.c < 0) {
-    if (pay(CROPS[S.sel].cost)) { p.c = S.sel; p.t = Date.now(); NexusScore.tone(300, 0, 0.05, 'square', 0.03); } else note('Not enough coins to plant ' + CROPS[S.sel].n);
-  } else if (Date.now() - p.t >= growMs(p.c)) harvest(p, false);
-  render();
+function say(t) { note = t; msgT = 4000; }
+function float(x, y, s, col) { floaters.push({ x, y, s, col: col || '#ffe27a', t: 0 }); }
+function lerpC(a, b, t) {
+  const pa = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16)), pb = [1, 3, 5].map(i => parseInt(b.substr(i, 2), 16));
+  return 'rgb(' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t)).join(',') + ')';
 }
-function harvest(p, replant) {
-  const v = sellVal(p.c); earn(v); NexusScore.tone(600, 0, 0.06, 'triangle', 0.04);
-  const c = p.c; p.c = -1;
-  if (replant && S.coins >= CROPS[c].cost) { S.coins -= CROPS[c].cost; p.c = c; p.t = Date.now(); }
-}
-function render() {
-  $('scoreEl').textContent = fmt(S.coins); $('totalEl').textContent = fmt(S.total); $('starEl').textContent = S.stars;
-  const g = $('fgrid'); g.innerHTML = '';
-  const now = Date.now();
-  for (let i = 0; i < MAXP; i++) {
-    const b = document.createElement('button'); b.className = 'fp'; b.onpointerdown = () => plotClick(i);
-    if (i >= S.owned) { b.classList.add('lock'); b.innerHTML = i === S.owned ? 'Buy plot<br>\u{1FA99} ' + fmt(plotCost()) : '\u{1F512}'; if (i > S.owned) b.disabled = true; }
-    else {
-      const p = S.plots[i];
-      if (p.c < 0) b.textContent = '\u{1F7EB}';
-      else { const f = Math.min(1, (now - p.t) / growMs(p.c)); b.innerHTML = f >= 1 ? CROPS[p.c].e : (f < 0.5 ? '\u{1F331}' : '\u{1F33F}') + '<i style="width:' + f * 100 + '%"></i>'; if (f >= 1) b.classList.add('rdy'); }
-    }
-    g.appendChild(b);
+const ready = p => p.c >= 0 && p.g >= CROPS[p.c].ms;
+
+function layoutCritters() {
+  const out = [];
+  for (const k of AK) for (let i = 0; i < S.an[k]; i++) {
+    const old = critters.filter(c => c.k === k)[i];
+    out.push(old || { k, x: PEN.x + 30 + Math.random() * (PEN.w - 60), y: PEN.y + 50 + Math.random() * (PEN.h - 90), tx: 0, ty: 0, t: 0 });
   }
-  const side = $('fside'); let h = '<h4>Plant</h4>';
+  critters = out;
+}
+function syncHands() {
+  while (hands.length < S.hands) hands.push({ x: 560, y: 40, job: null, wait: 0 });
+  hands.length = Math.min(hands.length, S.hands);
+}
+function harvest(i, replant, byHand) {
+  const p = S.plots[i], c = p.c, v = sellVal(c), r = plotRect(i);
+  earn(v); float(r.x + PW / 2, r.y + 10, '+' + fmt(v)); NexusScore.tone(600, 0, 0.06, 'triangle', 0.04);
+  p.c = -1; p.g = 0;
+  if (replant && S.coins >= CROPS[c].cost) { S.coins -= CROPS[c].cost; p.c = c; p.g = 0; }
+}
+function collect() {
+  let n = 0, v = 0;
+  for (const k of AK) if (S.rdy[k] > 0) { n += S.rdy[k]; v += Math.round(S.rdy[k] * ANIMALS[k].val * mult()); S.rdy[k] = 0; }
+  if (n) { earn(v); float(PEN.x + PEN.w / 2, PEN.y + 20, '+' + fmt(v)); NexusScore.tone(700, 0, 0.1, 'sine', 0.05); }
+  return n;
+}
+function plotClick(i) {
+  if (i >= S.owned) {
+    if (i === S.owned) { if (pay(plotCost())) { S.owned++; NexusScore.tone(440, 0, 0.1, 'triangle', 0.05); } else say('Need \u{1FA99} ' + fmt(plotCost()) + ' for a new plot'); }
+    return;
+  }
+  const p = S.plots[i];
+  if (p.c < 0) { if (pay(CROPS[S.sel].cost)) { p.c = S.sel; p.g = 0; NexusScore.tone(300, 0, 0.05, 'square', 0.03); } else say('Not enough coins to plant ' + CROPS[S.sel].n); }
+  else if (ready(p)) harvest(i, false);
+  else if (p.w < 0.95) { p.w = 1; float(plotRect(i).x + PW / 2, plotRect(i).y + 20, '\u{1F4A7}', '#7fd0ff'); NexusScore.tone(260, 0, 0.05, 'sine', 0.03); }
+}
+function catchUp(ms) {
+  ms = Math.min(ms, 4 * 3600 * 1000); if (ms < 5000) return;
+  let grown = 0, prod = 0;
+  for (let i = 0; i < S.owned; i++) { const p = S.plots[i]; if (p.c >= 0) { p.g += ms * 0.5 * speedRate(); grown++; } p.w = 0.3; }
+  for (const k of AK) if (S.an[k] > 0) { S.prog[k] += ms * 0.5 * S.an[k]; while (S.prog[k] >= ANIMALS[k].ms && S.rdy[k] < S.an[k] * 4) { S.prog[k] -= ANIMALS[k].ms; S.rdy[k]++; prod++; } }
+  if (grown || prod) away = 'Welcome back! While you were away ' + grown + ' crop(s) kept growing and ' + prod + ' animal product(s) are waiting.';
+}
+function pickJob(h) {
+  const claimed = new Set(hands.map(x => x.job).filter(j => j !== null && j !== undefined));
+  let best = null, bd = 1e9;
+  const consider = (j, x, y, pr) => { if (claimed.has(j)) return; const d = Math.hypot(x - h.x, y - h.y) + pr * 1000; if (d < bd) { bd = d; best = j; } };
+  for (let i = 0; i < S.owned; i++) {
+    const p = S.plots[i], r = plotRect(i), cx = r.x + PW / 2, cy = r.y + PH / 2;
+    if (ready(p)) consider(i, cx, cy, 0); else if (p.c >= 0 && p.w < 0.3) consider(i, cx, cy, 1); else if (p.c < 0 && S.coins >= CROPS[S.sel].cost) consider(i, cx, cy, 2);
+  }
+  if (AK.some(k => S.rdy[k] > 0)) consider('pen', PEN.x + 20, PEN.y + 100, 0.5);
+  return best;
+}
+function update(dt) {
+  const now = Date.now(), d = daylight();
+  if (now > wx.next) { wx.rain = !wx.rain && Math.random() < 0.5; wx.next = now + (wx.rain ? 25000 : 50000) + Math.random() * 40000; }
+  const gr = (d > 0.25 ? 1 : 0.6) * (wx.rain ? 1.25 : 1) * speedRate();
+  const sprCover = Math.floor(S.owned * S.spr / 3);
+  for (let i = 0; i < S.owned; i++) {
+    const p = S.plots[i];
+    p.w = wx.rain ? 1 : Math.max(0, p.w - dt / 60000);
+    if (i < sprCover && p.w < 0.5) p.w = 1;
+    if (p.c >= 0) p.g += dt * gr * (p.w > 0.15 ? 1 : 0.4);
+  }
+  for (const k of AK) {
+    const n = S.an[k]; if (!n) continue;
+    if (S.rdy[k] < n * 4) { S.prog[k] += dt * n; while (S.prog[k] >= ANIMALS[k].ms && S.rdy[k] < n * 4) { S.prog[k] -= ANIMALS[k].ms; S.rdy[k]++; } }
+  }
+  for (let c = 0; c < 5; c++) { idx[c] += (Math.random() - 0.5) * 0.0008 * dt + (1 - idx[c]) * 0.00002 * dt; idx[c] = Math.max(0.7, Math.min(1.35, idx[c])); }
+  if (boom && now > boom.end) boom = null;
+  if (!boom && now > nextBoom) { const o = [0, 1, 2, 3, 4].filter(i => S.unl[i]); boom = { c: o[(Math.random() * o.length) | 0], end: now + 30000 }; nextBoom = now + 90000 + Math.random() * 60000; NexusScore.tone(880, 0, 0.2, 'sine', 0.05); }
+  syncHands();
+  for (const h of hands) {
+    if (h.wait > 0) { h.wait -= dt; continue; }
+    if (h.job === null) { h.job = pickJob(h); if (h.job === null) { h.job = null; continue; } }
+    let tx, ty;
+    if (h.job === 'pen') { tx = PEN.x + 20; ty = PEN.y + 100; } else { const r = plotRect(h.job); tx = r.x + PW / 2; ty = r.y + PH / 2; }
+    const dx = tx - h.x, dy = ty - h.y, dist = Math.hypot(dx, dy), step = dt * 0.1;
+    if (dist > step + 2) { h.x += dx / dist * step; h.y += dy / dist * step; continue; }
+    if (h.job === 'pen') collect();
+    else { const p = S.plots[h.job]; if (ready(p)) harvest(h.job, true, true); else if (p.c >= 0) { p.w = 1; } else if (S.coins >= CROPS[S.sel].cost) { S.coins -= CROPS[S.sel].cost; p.c = S.sel; p.g = 0; } }
+    h.job = null; h.wait = 250;
+  }
+  layoutCritters();
+  for (const c of critters) {
+    c.t -= dt;
+    if (c.t <= 0) { c.tx = PEN.x + 24 + Math.random() * (PEN.w - 48); c.ty = PEN.y + 46 + Math.random() * (PEN.h - 80); c.t = 2000 + Math.random() * 3000; }
+    const dx = c.tx - c.x, dy = c.ty - c.y, dd = Math.hypot(dx, dy);
+    if (dd > 2) { const sp = Math.min(dd, dt * 0.02); c.x += dx / dd * sp; c.y += dy / dd * sp; }
+  }
+  for (const f of floaters) { f.t += dt; f.y -= dt * 0.03; }
+  floaters = floaters.filter(f => f.t < 1200);
+  if (wx.rain) { while (drops.length < 70) drops.push({ x: Math.random() * W, y: Math.random() * H }); for (const q of drops) { q.y += dt * 0.5; q.x -= dt * 0.08; if (q.y > H) { q.y = -10; q.x = Math.random() * W + 40; } } } else drops = [];
+  if (msgT > 0) msgT -= dt;
+}
+function cropDraw(p, x, y, now) {
+  const m = CROPS[p.c], f = Math.min(1, p.g / m.ms);
+  if (f >= 1) {
+    const bob = Math.sin(now / 250) * 2;
+    ctx.fillStyle = 'rgba(255,226,122,.35)'; ctx.beginPath(); ctx.arc(x + PW / 2, y + PH / 2, 24, 0, 7); ctx.fill();
+    ctx.font = '34px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    ctx.fillText(m.e, x + PW / 2, y + PH / 2 + bob); return;
+  }
+  const hgt = 6 + f * 30;
+  for (let k = 0; k < 3; k++) {
+    const bx = x + PW * (k + 0.5) / 3, by = y + PH - 8, sway = Math.sin(now / 600 + k) * 1.5;
+    ctx.strokeStyle = m.col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + sway, by - hgt); ctx.stroke();
+    ctx.fillStyle = m.col;
+    ctx.beginPath(); ctx.ellipse(bx - 5 + sway, by - hgt * 0.6, 5 + f * 3, 2.5 + f * 1.5, -0.5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(bx + 5 + sway, by - hgt * 0.85, 5 + f * 3, 2.5 + f * 1.5, 0.5, 0, 7); ctx.fill();
+  }
+}
+function draw() {
+  const now = performance.now(), d = daylight();
+  const sky = ctx.createLinearGradient(0, 0, 0, 70);
+  sky.addColorStop(0, lerpC('#0b1030', '#5fb8ff', d)); sky.addColorStop(1, lerpC('#1c2a5e', '#d8f3ff', d));
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, 70);
+  const ang = phase() * 6.2832, sy = 60 - Math.sin(ang) * 54, my = 60 + Math.sin(ang) * 54, sx = W * 0.5 - Math.cos(ang) * W * 0.45;
+  if (sy < 62) { ctx.fillStyle = '#ffe27a'; ctx.beginPath(); ctx.arc(sx, sy, 16, 0, 7); ctx.fill(); }
+  if (my < 62) { ctx.fillStyle = '#e6ecff'; ctx.beginPath(); ctx.arc(W - sx, my, 11, 0, 7); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.25 + 0.6 * d) + ')';
+  for (let i = 0; i < 3; i++) { const cx = ((now / 80 + i * 230) % (W + 120)) - 60; ctx.beginPath(); ctx.ellipse(cx, 22 + i * 9, 34, 10, 0, 0, 7); ctx.ellipse(cx + 18, 18 + i * 9, 22, 9, 0, 0, 7); ctx.fill(); }
+  ctx.fillStyle = lerpC('#16301c', '#4a9a3e', d); ctx.fillRect(0, 60, W, H - 60);
+  ctx.fillStyle = lerpC('#10241a', '#3b8334', d); for (let x = 0; x < W; x += 32) ctx.fillRect(x, 60, 16, 6);
+  ctx.font = '30px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  ctx.fillText('\u{1F3E1}', 560, 38); ctx.fillText('\u{1F333}', 20, 40); ctx.fillText('\u{1F332}', 400, 42);
+  for (let i = 0; i < MAXP; i++) {
+    const r = plotRect(i);
+    if (i >= S.owned) {
+      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(r.x, r.y, PW, PH);
+      if (i === S.owned) { ctx.fillStyle = '#fff'; ctx.font = '700 12px sans-serif'; ctx.fillText('Buy plot', r.x + PW / 2, r.y + PH / 2 - 8); ctx.fillText('\u{1FA99} ' + fmt(plotCost()), r.x + PW / 2, r.y + PH / 2 + 10); }
+      else { ctx.font = '20px sans-serif'; ctx.fillText('\u{1F512}', r.x + PW / 2, r.y + PH / 2); }
+      continue;
+    }
+    const p = S.plots[i];
+    ctx.fillStyle = lerpC('#a67c52', '#4a2f1a', p.w); ctx.fillRect(r.x, r.y, PW, PH);
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; for (let k = 1; k < 4; k++) ctx.fillRect(r.x + 4, r.y + k * (PH / 4), PW - 8, 3);
+    if (p.c >= 0) cropDraw(p, r.x, r.y, now);
+    else { ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.font = '600 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('tap to plant', r.x + PW / 2, r.y + PH / 2); }
+    if (p.c >= 0 && p.w < 0.2 && Math.sin(now / 200) > -0.3) { ctx.font = '14px sans-serif'; ctx.fillText('\u{1F4A7}?', r.x + 14, r.y + 12); }
+    if (p.c >= 0 && !ready(p)) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(r.x, r.y + PH - 5, PW, 5); ctx.fillStyle = '#4ade80'; ctx.fillRect(r.x, r.y + PH - 5, PW * Math.min(1, p.g / CROPS[p.c].ms), 5); }
+  }
+  ctx.fillStyle = lerpC('#6b5a2a', '#d9b866', d); ctx.fillRect(PEN.x, PEN.y, PEN.w, PEN.h);
+  ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 5; ctx.strokeRect(PEN.x, PEN.y, PEN.w, PEN.h);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.font = '700 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ANIMAL PEN — tap to collect', PEN.x + PEN.w / 2, PEN.y + 14);
+  for (const c of critters) { ctx.font = (c.k === 'chicken' ? 22 : 28) + 'px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText(ANIMALS[c.k].e, c.x, c.y); }
+  AK.forEach((k, i) => { if (S.rdy[k] > 0) { ctx.font = '22px sans-serif'; ctx.fillText(ANIMALS[k].p, PEN.x + 30 + i * 60, PEN.y + 36 + Math.sin(now / 300 + i) * 3); ctx.font = '700 12px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('x' + S.rdy[k], PEN.x + 50 + i * 60, PEN.y + 40); } });
+  for (const h of hands) { ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('\u{1F9D1}‍\u{1F33E}', h.x, h.y); }
+  ctx.fillStyle = 'rgba(8,10,40,' + (0.55 * (1 - d)).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H);
+  if (wx.rain) { ctx.fillStyle = 'rgba(60,80,110,.18)'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = 'rgba(190,220,255,.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); for (const q of drops) { ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - 3, q.y + 9); } ctx.stroke(); }
+  for (const f of floaters) { ctx.globalAlpha = 1 - f.t / 1200; ctx.fillStyle = f.col; ctx.font = '800 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(f.s, f.x, f.y); ctx.globalAlpha = 1; }
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, 0, W, 20);
+  ctx.fillStyle = '#fff'; ctx.font = '700 12px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText((wx.rain ? '\u{1F327}️ Rain: crops grow 25% faster' : d < 0.25 ? '\u{1F319} Night: crops grow slower' : '☀️ Sunny') + (boom ? '   \u{1F525} ' + CROPS[boom.c].n + ' sells double!' : ''), 8, 11);
+  ctx.textAlign = 'right'; ctx.fillText(msgT > 0 ? note : '', W - 8, 11);
+}
+function ui(force) {
+  const sig = [Math.floor(S.coins), S.owned, S.hands, S.speed, S.price, S.spr, S.sel, S.unl.join(), AK.map(k => S.an[k]).join(), Math.floor(S.run / 100), boom && boom.c, idx.map(v => Math.round(v * 20)).join(), S.stars, away].join('|');
+  $('scoreEl').textContent = fmt(S.coins); $('totalEl').textContent = fmt(S.total); $('starEl').textContent = S.stars;
+  if (!force && sig === uiSig) return; uiSig = sig;
+  let h = away ? '<div class="fnote">' + away + '</div>' : '';
+  h += '<h4>Crops (sell price follows the market ▲▼)</h4><div class="frow">';
   CROPS.forEach((c, i) => {
-    h += S.unl[i] ? '<button class="fb ' + (S.sel === i ? 'on' : '') + '" data-sel="' + i + '"><span>' + c.e + ' ' + c.n + (boom && boom.c === i ? ' \u{1F525}x2' : '') + '</span><span>' + c.cost + ' → ' + sellVal(i) + '</span></button>'
-      : '<button class="fb" data-unl="' + i + '" ' + (S.coins < c.unlock ? 'disabled' : '') + '><span>\u{1F512} Unlock ' + c.n + '</span><span>\u{1FA99} ' + fmt(c.unlock) + '</span></button>';
+    const arrow = idx[i] > 1.06 ? ' <span style="color:#4ade80">▲</span>' : idx[i] < 0.94 ? ' <span style="color:#ff5c5c">▼</span>' : '';
+    h += S.unl[i] ? '<button class="fb ' + (S.sel === i ? 'on' : '') + '" data-sel="' + i + '"><span>' + c.e + ' ' + c.n + (boom && boom.c === i ? ' \u{1F525}' : '') + '</span><span>' + c.cost + '→' + sellVal(i) + arrow + '</span></button>'
+      : '<button class="fb" data-unl="' + i + '" ' + (S.coins < c.unlock ? 'disabled' : '') + '><span>\u{1F512} ' + c.n + '</span><span>\u{1FA99} ' + fmt(c.unlock) + '</span></button>';
   });
-  h += '<h4>Upgrades</h4>' +
-    '<button class="fb" data-up="speed" ' + (S.speed >= 10 || S.coins < speedCost() ? 'disabled' : '') + '><span>⚡ Faster growth (Lv ' + S.speed + ')</span><span>' + (S.speed >= 10 ? 'MAX' : '\u{1FA99} ' + fmt(speedCost())) + '</span></button>' +
-    '<button class="fb" data-up="price" ' + (S.coins < priceCost() ? 'disabled' : '') + '><span>\u{1F4B0} Better prices (Lv ' + S.price + ')</span><span>\u{1FA99} ' + fmt(priceCost()) + '</span></button>' +
-    '<button class="fb" data-up="hand" ' + (S.hands >= 8 || S.coins < handCost() ? 'disabled' : '') + '><span>\u{1F9D1}‍\u{1F33E} Farmhand (' + S.hands + '/8)</span><span>' + (S.hands >= 8 ? 'MAX' : '\u{1FA99} ' + fmt(handCost())) + '</span></button>' +
-    '<h4>Farm</h4>' +
-    '<button class="fb" data-act="sub"><span>\u{1F3C6} Submit score to leaderboard</span><span>' + fmt(S.total) + '</span></button>' +
-    '<button class="fb" data-act="pres" ' + (S.run < 5000 ? 'disabled' : '') + '><span>⭐ Sell farm (+' + Math.max(1, Math.floor(Math.sqrt(S.run / 2500))) + ' star, +25% each)</span><span>' + (S.run < 5000 ? fmt(S.run) + '/5k' : 'Ready') + '</span></button>';
-  side.innerHTML = h;
-  side.querySelectorAll('[data-sel]').forEach(b => b.onpointerdown = () => { S.sel = +b.dataset.sel; render(); });
-  side.querySelectorAll('[data-unl]').forEach(b => b.onpointerdown = () => { const i = +b.dataset.unl; if (pay(CROPS[i].unlock)) { S.unl[i] = true; S.sel = i; NexusScore.tone(700, 0, 0.15, 'sine', 0.06); } render(); });
-  side.querySelectorAll('[data-up]').forEach(b => b.onpointerdown = () => {
+  h += '</div><h4>Animals (they make goods over time)</h4><div class="frow">';
+  for (const k of AK) { const a = ANIMALS[k]; h += '<button class="fb" data-an="' + k + '" ' + (S.an[k] >= a.max || S.coins < animCost(k) ? 'disabled' : '') + '><span>' + a.e + ' ' + a.n + ' (' + S.an[k] + '/' + a.max + ')</span><span>' + (S.an[k] >= a.max ? 'MAX' : '\u{1FA99} ' + fmt(animCost(k))) + '</span></button>'; }
+  h += '</div><h4>Upgrades</h4><div class="frow">' +
+    '<button class="fb" data-up="speed" ' + (S.speed >= 10 || S.coins < speedCost() ? 'disabled' : '') + '><span>⚡ Fertilizer Lv ' + S.speed + '</span><span>' + (S.speed >= 10 ? 'MAX' : '\u{1FA99} ' + fmt(speedCost())) + '</span></button>' +
+    '<button class="fb" data-up="price" ' + (S.coins < priceCost() ? 'disabled' : '') + '><span>\u{1F4B0} Better prices Lv ' + S.price + '</span><span>\u{1FA99} ' + fmt(priceCost()) + '</span></button>' +
+    '<button class="fb" data-up="spr" ' + (S.spr >= 3 || S.coins < sprCost() ? 'disabled' : '') + '><span>\u{1F4A6} Sprinklers Lv ' + S.spr + '/3</span><span>' + (S.spr >= 3 ? 'MAX' : '\u{1FA99} ' + fmt(sprCost())) + '</span></button>' +
+    '<button class="fb" data-up="hand" ' + (S.hands >= 8 || S.coins < handCost() ? 'disabled' : '') + '><span>\u{1F9D1}‍\u{1F33E} Farmhand ' + S.hands + '/8</span><span>' + (S.hands >= 8 ? 'MAX' : '\u{1FA99} ' + fmt(handCost())) + '</span></button>' +
+    '</div><h4>Farm</h4><div class="frow">' +
+    '<button class="fb" data-act="sub"><span>\u{1F3C6} Submit score</span><span>' + fmt(S.total) + '</span></button>' +
+    '<button class="fb" data-act="pres" ' + (S.run < 5000 ? 'disabled' : '') + '><span>⭐ Sell farm (+' + Math.max(1, Math.floor(Math.sqrt(S.run / 2500))) + ' star)</span><span>' + (S.run < 5000 ? fmt(S.run) + '/5k' : 'Ready') + '</span></button></div>';
+  fui.innerHTML = h;
+  fui.querySelectorAll('[data-sel]').forEach(b => b.onpointerdown = () => { S.sel = +b.dataset.sel; ui(true); });
+  fui.querySelectorAll('[data-unl]').forEach(b => b.onpointerdown = () => { const i = +b.dataset.unl; if (pay(CROPS[i].unlock)) { S.unl[i] = true; S.sel = i; NexusScore.tone(700, 0, 0.15, 'sine', 0.06); } ui(true); });
+  fui.querySelectorAll('[data-an]').forEach(b => b.onpointerdown = () => { const k = b.dataset.an; if (S.an[k] < ANIMALS[k].max && pay(animCost(k))) { S.an[k]++; NexusScore.tone(520, 0, 0.1, 'triangle', 0.05); } ui(true); });
+  fui.querySelectorAll('[data-up]').forEach(b => b.onpointerdown = () => {
     const k = b.dataset.up;
-    if (k === 'speed' && pay(speedCost())) S.speed++; else if (k === 'price' && pay(priceCost())) S.price++; else if (k === 'hand' && pay(handCost())) S.hands++;
-    NexusScore.tone(520, 0, 0.1, 'triangle', 0.05); render();
+    if (k === 'speed' && S.speed < 10 && pay(speedCost())) S.speed++; else if (k === 'price' && pay(priceCost())) S.price++;
+    else if (k === 'spr' && S.spr < 3 && pay(sprCost())) S.spr++; else if (k === 'hand' && S.hands < 8 && pay(handCost())) S.hands++;
+    NexusScore.tone(520, 0, 0.1, 'triangle', 0.05); ui(true);
   });
-  side.querySelectorAll('[data-act]').forEach(b => b.onpointerdown = () => b.dataset.act === 'sub' ? submitScore() : prestige());
-  if (!flash) $('fnote').textContent = boom ? '\u{1F525} Market boom! ' + CROPS[boom.c].n + ' sells for double!' : 'Tap a plot to plant, tap again when it glows to harvest.';
+  fui.querySelectorAll('[data-act]').forEach(b => b.onpointerdown = () => b.dataset.act === 'sub' ? submitScore() : prestige());
 }
 function prestige() {
   if (S.run < 5000) return;
   const add = Math.max(1, Math.floor(Math.sqrt(S.run / 2500)));
   if (!confirm('Sell the farm for ' + add + ' star(s)? You restart with 1,000 coins but earn +25% per star forever.')) return;
-  S = fresh(S.stars + add, S.total); save(); NexusScore.confetti(); render();
+  S = fresh(S.stars + add, S.total); hands = []; critters = []; save(); NexusScore.confetti(); ui(true);
 }
 function submitScore() {
   save();
@@ -165,27 +316,36 @@ function submitScore() {
   b.onclick = () => msg.classList.add('hidden'); msg.appendChild(b);
   NexusScore.submit(GAME_NAME, score);
 }
-function tick() {
-  const now = Date.now();
-  handT += 250;
-  if (handT >= 1000) {
-    handT = 0;
-    let n = S.hands;
-    for (let i = 0; i < S.owned && n > 0; i++) { const p = S.plots[i]; if (p.c >= 0 && now - p.t >= growMs(p.c)) { harvest(p, true); n--; } else if (p.c < 0 && S.hands && n > 0 && S.coins >= CROPS[S.sel].cost) { S.coins -= CROPS[S.sel].cost; p.c = S.sel; p.t = now; n--; } }
-  }
-  if (boom && now > boom.end) boom = null;
-  if (!boom && now > nextBoom) { const o = CROPS.map((c, i) => i).filter(i => S.unl[i]); boom = { c: o[(Math.random() * o.length) | 0], end: now + 30000 }; nextBoom = now + 90000 + Math.random() * 60000; NexusScore.tone(880, 0, 0.2, 'sine', 0.05); }
-  render();
+function frame(t) {
+  if (!lastF) lastF = t;
+  let dt = t - lastF; lastF = t;
+  if (dt > 5000) { catchUp(dt); dt = 16; ui(true); }
+  update(Math.min(dt, 100)); draw(); ui(false);
+  requestAnimationFrame(frame);
 }
+canvas.addEventListener('pointerdown', e => {
+  if (!started) return;
+  const r = canvas.getBoundingClientRect(), x = (e.clientX - r.left) * (W / r.width), y = (e.clientY - r.top) * (H / r.height);
+  for (let i = 0; i < MAXP; i++) { const q = plotRect(i); if (x >= q.x && x <= q.x + PW && y >= q.y && y <= q.y + PH) { plotClick(i); ui(true); return; } }
+  if (x >= PEN.x && x <= PEN.x + PEN.w && y >= PEN.y && y <= PEN.y + PEN.h) { if (!collect()) say('Nothing to collect yet'); ui(true); }
+});
+const fui = document.createElement('div');
+fui.id = 'fui';
+const css = document.createElement('style');
+css.textContent = '#fui{padding:6px 12px 12px;width:100%;box-sizing:border-box}#fui h4{margin:10px 0 6px;font-size:.72rem;color:#a7abc9;text-transform:uppercase;letter-spacing:.06em}.frow{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px}.fb{background:#1e2142;color:#f4f5fb;border:1px solid #2a2d54;border-radius:10px;padding:8px 10px;font:600 .8rem inherit;cursor:pointer;text-align:left;display:flex;justify-content:space-between;gap:8px}.fb:disabled{opacity:.45;cursor:not-allowed}.fb.on{border-color:#7c5cff;background:#2b2370}.fnote{background:rgba(255,226,122,.15);border:1px solid #ffe27a;border-radius:10px;padding:8px 10px;font-size:.85rem;font-weight:600}';
+document.head.appendChild(css);
+canvas.parentNode.insertBefore(fui, canvas.nextSibling);
+catchUp(Date.now() - (S.last || Date.now()));
+syncHands(); layoutCritters(); ui(true); draw();
+if (S.total > 0) startBtn.textContent = 'Continue Farming';
 function start() {
   msg.classList.add('hidden');
   if (started) return;
-  started = true; render();
-  setInterval(tick, 250); setInterval(save, 5000);
+  started = true; lastF = 0;
+  requestAnimationFrame(frame);
+  setInterval(save, 5000);
   addEventListener('beforeunload', save);
 }
-render();
-if (S.total > 0) startBtn.textContent = 'Continue Farming';
 
 startBtn.addEventListener('click', start);
 </script>
