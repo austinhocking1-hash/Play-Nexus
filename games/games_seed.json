@@ -100,5 +100,11 @@
     "genre": "Arcade",
     "status": "Live",
     "slug": "reflex-rush"
+  },
+  {
+    "title": "Nexus Flight",
+    "genre": "Simulation",
+    "status": "Live",
+    "slug": "nexus-flight"
   }
 ]

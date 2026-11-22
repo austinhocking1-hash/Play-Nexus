@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Flight — Play Nexus</title>
+<link rel="stylesheet" href="game.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#7c5cff">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Play Nexus">
+<meta name="description" content="A pseudo-3D flight sim. Fly through the gold rings over mountains and sea, watch your fuel, then land on the runway for a bonus. Stall, crash or run dry and it is over.">
+<meta property="og:title" content="Nexus Flight — Play Nexus">
+<meta property="og:description" content="A pseudo-3D flight sim. Fly through the gold rings over mountains and sea, watch your fuel, then land on the runway for a bonus. Stall, crash or run dry and it is over.">
+<meta property="og:image" content="https://letsplaynexus.online/icon-512.png">
+<link rel="canonical" href="https://letsplaynexus.online/games/nexus-flight.html">
+</head>
+<body>
+
+<div class="game-header">
+  <a href="../index.html" class="back-link">&larr; Back to Play Nexus</a>
+  <span class="game-title">Nexus <span>Flight</span></span>
+</div>
+
+<div class="game-stage">
+  <canvas id="stage" width="640" height="400"></canvas>
+  <div class="game-msg" id="msg">
+    <h2>Nexus Flight</h2>
+    <p>A pseudo-3D flight sim. Fly through the gold rings over mountains and sea, watch your fuel, then land on the runway for a bonus. Stall, crash or run dry and it is over.</p>
+    <button class="btn" id="startBtn">Take Off</button>
+  </div>
+</div>
+
+<div class="hud">
+  <span>Score: <b id="scoreEl">0</b></span>
+  <span>Mission: <b id="levelEl">1</b></span>
+  <span>Rings: <b id="ringEl">0</b></span>
+  <span>Best: <b id="bestEl">0</b></span>
+</div>
+<p class="controls-hint">Controls: Arrows steer (Up = nose up, Left/Right = bank), W/S throttle. On a phone drag to steer and use the throttle bar on the right. Land slow, level, on the runway.</p>
+<div class="ad-slot"></div>
+<script src="../ads.js"></script>
+
+<script src="../config.js"></script>
+<script src="nexus-score.js"></script>
+<script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const msg = document.getElementById('msg');
+const startBtn = document.getElementById('startBtn');
+const $ = id => document.getElementById(id);
+const GAME_NAME = 'Nexus Flight';
+function showEnd(head, text, again) {
+  msg.classList.remove('hidden');
+  msg.innerHTML = '<h2>' + head + '</h2><p>' + text + '</p>';
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = again; b.onclick = start;
+  msg.appendChild(b);
+}
+
+const F = 520, NEAR = 6, CELL = 240, RAD = 20, FOGC = [184, 212, 232];
+let P, rings, airports, fuel, score, chain, level, running, animId, lastT, throttle, ringsLeft, banner, bannerT, stalled, ax = 0, ay = 0, keys = {}, ringsDone, landings, CR = 0, warn = '';
+let best = Number(localStorage.getItem('flight-best') || 0);
+$('bestEl').textContent = best;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function hash(i, j) { let h = (i * 374761393 + j * 668265263) | 0; h = ((h ^ (h >>> 13)) * 1274126177) | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+function vnoise(x, z) {
+  const i = Math.floor(x), j = Math.floor(z), fx = x - i, fz = z - j, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+  const a = hash(i, j), b = hash(i + 1, j), c = hash(i, j + 1), d = hash(i + 1, j + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function height(x, z) {
+  const n = vnoise(x / 2400, z / 2400) * 0.6 + vnoise(x / 950, z / 950) * 0.28 + vnoise(x / 320, z / 320) * 0.12;
+  let h = Math.max(0, (n - 0.4) * 1150);
+  for (const a of airports) {
+    const d = Math.hypot(x - a.x, z - a.z);
+    if (d < 1100) { const t = clamp((d - 500) / 600, 0, 1), s = t * t * (3 - 2 * t); h = a.alt + (h - a.alt) * s; }
+  }
+  return h;
+}
+function mkAirport(x, z, hd) { return { x, z, hd, alt: 20, len: 760, wid: 70 }; }
+function fwd(yaw, pitch) { return [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)]; }
+function addRing() {
+  const last = rings.length ? rings[rings.length - 1] : { x: P.x, z: P.z, hd: P.yaw };
+  const hd = last.hd + (Math.random() - 0.5) * 1.1, dist = 1500 + Math.random() * 700;
+  const x = last.x + Math.sin(hd) * dist, z = last.z + Math.cos(hd) * dist, g = height(x, z);
+  const R = Math.max(38, 66 - level * 3);
+  rings.push({ x, z, hd, y: clamp(g + R + 70 + Math.random() * 280, 120, 1500), R, nx: Math.sin(hd), nz: Math.cos(hd), prev: null });
+}
+function newMission() {
+  rings = []; ringsLeft = 4 + level;
+  for (let i = 0; i < 4; i++) addRing();
+}
+function start() {
+  msg.classList.add('hidden');
+  airports = [mkAirport(0, 0, 0)];
+  P = { x: 0, y: 380, z: -2600, yaw: 0, pitch: 0, roll: 0, v: 85, vy: 0 };
+  throttle = 0.6; fuel = 100; score = 0; chain = 0; level = 1; ringsDone = 0; landings = 0; banner = ''; bannerT = 0; lastT = 0; running = true;
+  newMission(); hud();
+  cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
+}
+function hud() { $('scoreEl').textContent = score; $('levelEl').textContent = level; $('ringEl').textContent = ringsDone; }
+function say(t) { banner = t; bannerT = 2.2; }
+function cam(px, py, pz) {
+  const dx = px - P.x, dy = py - P.y, dz = pz - P.z, cy = Math.cos(P.yaw), sy = Math.sin(P.yaw), cp = Math.cos(P.pitch), sp = Math.sin(P.pitch), cr = Math.cos(CR), sr = Math.sin(CR);
+  const x1 = dx * cy - dz * sy, z1 = dx * sy + dz * cy, y2 = dy * cp - z1 * sp, z2 = dy * sp + z1 * cp;
+  return [x1 * cr - y2 * sr, x1 * sr + y2 * cr, z2];
+}
+function clipNear(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length], ain = a[2] >= NEAR, bin = b[2] >= NEAR;
+    if (ain) out.push(a);
+    if (ain !== bin) { const t = (NEAR - a[2]) / (b[2] - a[2]); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]); }
+  }
+  return out;
+}
+function poly(pts, color, stroke) {
+  const q = clipNear(pts); if (q.length < 3) return;
+  ctx.beginPath();
+  for (let i = 0; i < q.length; i++) { const x = W / 2 + F * q[i][0] / q[i][2], y = H / 2 - F * q[i][1] / q[i][2]; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  if (stroke) { ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke(); }
+}
+function mix(c, t) { return 'rgb(' + Math.round(c[0] + (FOGC[0] - c[0]) * t) + ',' + Math.round(c[1] + (FOGC[1] - c[1]) * t) + ',' + Math.round(c[2] + (FOGC[2] - c[2]) * t) + ')'; }
+function terrainColor(h, shade) {
+  if (h <= 0.5) return [48, 112, 200];
+  if (h < 28) return [220 * shade, 202 * shade, 142 * shade];
+  if (h < 170) { const t = h / 170; return [(72 - 20 * t) * shade, (156 - 36 * t) * shade, (72 - 16 * t) * shade]; }
+  if (h < 310) return [124 * shade, 118 * shade, 112 * shade];
+  return [242 * shade, 246 * shade, 250 * shade];
+}
+function drawWorld() {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#2a62c9'); sky.addColorStop(0.5, 'rgb(' + FOGC.join(',') + ')'); sky.addColorStop(1, 'rgb(' + FOGC.join(',') + ')');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  poly([cam(P.x - 60000, -3, P.z - 60000), cam(P.x + 60000, -3, P.z - 60000), cam(P.x + 60000, -3, P.z + 60000), cam(P.x - 60000, -3, P.z + 60000)], 'rgb(' + FOGC.join(',') + ')');
+  const gx0 = Math.floor(P.x / CELL), gz0 = Math.floor(P.z / CELL), N = RAD * 2 + 2, Hh = [], Cc = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const wx = (gx0 - RAD + i) * CELL, wz = (gz0 - RAD + j) * CELL, h = height(wx, wz);
+    Hh[i * N + j] = h; Cc[i * N + j] = cam(wx, h, wz);
+  }
+  const cells = [], fx = Math.sin(P.yaw), fz = Math.cos(P.yaw), R2 = (RAD * CELL) * (RAD * CELL);
+  for (let i = 0; i < N - 1; i++) for (let j = 0; j < N - 1; j++) {
+    const cx = (gx0 - RAD + i + 0.5) * CELL - P.x, cz = (gz0 - RAD + j + 0.5) * CELL - P.z, d2 = cx * cx + cz * cz;
+    if (d2 > R2 || cx * fx + cz * fz < -CELL * 1.6) continue;
+    cells.push([d2, i, j]);
+  }
+  cells.sort((a, b) => b[0] - a[0]);
+  for (const [d2, i, j] of cells) {
+    const a = i * N + j, b = (i + 1) * N + j, c = (i + 1) * N + j + 1, d = i * N + j + 1;
+    const avg = (Hh[a] + Hh[b] + Hh[c] + Hh[d]) / 4, shade = clamp(1 + (Hh[a] - Hh[c]) / CELL * 0.9, 0.62, 1.3);
+    const t = clamp((Math.sqrt(d2) - 1400) / (RAD * CELL - 1400), 0, 1);
+    poly([Cc[a], Cc[b], Cc[c], Cc[d]], mix(terrainColor(avg, shade), t * t), true);
+  }
+  for (const ap of airports) {
+    const A = [Math.sin(ap.hd), Math.cos(ap.hd)], S = [Math.cos(ap.hd), -Math.sin(ap.hd)];
+    const pt = (l, s, y) => cam(ap.x + A[0] * l + S[0] * s, ap.alt + (y || 0.8), ap.z + A[1] * l + S[1] * s);
+    poly([pt(-ap.len / 2, -ap.wid / 2), pt(-ap.len / 2, ap.wid / 2), pt(ap.len / 2, ap.wid / 2), pt(ap.len / 2, -ap.wid / 2)], '#3a3d4a');
+    for (let l = -ap.len / 2 + 40; l < ap.len / 2 - 40; l += 70) poly([pt(l, -2.5, 1), pt(l, 2.5, 1), pt(l + 34, 2.5, 1), pt(l + 34, -2.5, 1)], '#f4f5fb');
+    const top = cam(ap.x, ap.alt + 700, ap.z), bot = cam(ap.x, ap.alt, ap.z);
+    if (top[2] > NEAR && bot[2] > NEAR) { ctx.strokeStyle = 'rgba(47,208,255,.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W / 2 + F * bot[0] / bot[2], H / 2 - F * bot[1] / bot[2]); ctx.lineTo(W / 2 + F * top[0] / top[2], H / 2 - F * top[1] / top[2]); ctx.stroke(); }
+  }
+  for (let ci = Math.floor(P.x / 1700) - 4; ci <= Math.floor(P.x / 1700) + 4; ci++) for (let cj = Math.floor(P.z / 1700) - 4; cj <= Math.floor(P.z / 1700) + 4; cj++) {
+    if (hash(ci + 91, cj + 17) > 0.3) continue;
+    const q = cam(ci * 1700 + hash(ci, cj) * 900, 1100 + hash(cj, ci) * 500, cj * 1700 + hash(cj + 5, ci) * 900);
+    if (q[2] < 200) continue;
+    const sx = W / 2 + F * q[0] / q[2], sy = H / 2 - F * q[1] / q[2], r = F * 320 / q[2];
+    if (sx < -r * 2 || sx > W + r * 2 || r < 2) continue;
+    ctx.fillStyle = 'rgba(255,255,255,' + clamp(1 - q[2] / 9000, 0.12, 0.8) + ')';
+    ctx.beginPath(); ctx.ellipse(sx, sy, r * 1.6, r * 0.55, 0, 0, 7); ctx.ellipse(sx + r * 0.9, sy - r * 0.2, r, r * 0.45, 0, 0, 7); ctx.fill();
+  }
+  rings.forEach((rg, idx) => {
+    if (idx > 2) return;
+    const u = [rg.nz, -rg.nx];
+    const pts = [];
+    for (let k = 0; k <= 28; k++) { const t = k / 28 * 6.2832; pts.push(cam(rg.x + u[0] * Math.cos(t) * rg.R, rg.y + Math.sin(t) * rg.R, rg.z + u[1] * Math.cos(t) * rg.R)); }
+    const mid = cam(rg.x, rg.y, rg.z);
+    ctx.strokeStyle = idx === 0 ? '#ffe27a' : 'rgba(255,226,122,.45)'; ctx.lineWidth = clamp(1800 / Math.max(mid[2], 60), 2, 14);
+    ctx.beginPath(); let pen = false;
+    for (const q of pts) { if (q[2] < NEAR) { pen = false; continue; } const x = W / 2 + F * q[0] / q[2], y = H / 2 - F * q[1] / q[2]; if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y); pen = true; }
+    ctx.stroke();
+  });
+}
+function drawPlane() {
+  const s = NexusScore.skin(), g = ctx.createLinearGradient(-50, 0, 50, 0);
+  g.addColorStop(0, s[0]); g.addColorStop(1, s[1]);
+  ctx.save(); ctx.translate(W / 2, H * 0.78 - P.pitch * 40); ctx.rotate(P.roll - CR);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(-50, 12); ctx.lineTo(-8, -8); ctx.lineTo(0, -22); ctx.lineTo(8, -8); ctx.lineTo(50, 12); ctx.lineTo(14, 16); ctx.lineTo(0, 8); ctx.lineTo(-14, 16); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-2, -20, 4, 26);
+  if (fuel > 0 && throttle > 0.05) { ctx.fillStyle = 'rgba(255,170,60,' + (0.4 + throttle * 0.5) + ')'; ctx.beginPath(); ctx.arc(0, 12, 4 + throttle * 5, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function drawHud() {
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, 9, 0, 7); ctx.moveTo(W / 2 - 18, H / 2); ctx.lineTo(W / 2 - 9, H / 2); ctx.moveTo(W / 2 + 9, H / 2); ctx.lineTo(W / 2 + 18, H / 2); ctx.stroke();
+  ctx.font = '700 13px sans-serif'; ctx.textBaseline = 'alphabetic';
+  const agl = P.y - height(P.x, P.z);
+  ctx.textAlign = 'left'; ctx.fillText('SPD ' + Math.round(P.v * 1.94) + ' kt', 12, H - 62); ctx.fillText('ALT ' + Math.round(P.y) + ' m', 12, H - 46); ctx.fillText('AGL ' + Math.round(agl) + ' m', 12, H - 30);
+  ctx.textAlign = 'center'; ctx.fillText('HDG ' + String(Math.round(((P.yaw * 57.2958) % 360 + 360) % 360)).padStart(3, '0'), W / 2, 20);
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(W - 40, 70, 12, H - 140); ctx.fillStyle = '#4ade80'; ctx.fillRect(W - 40, 70 + (H - 140) * (1 - throttle), 12, (H - 140) * throttle);
+  ctx.fillStyle = '#fff'; ctx.font = '700 11px sans-serif'; ctx.fillText('THR', W - 34, 62);
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(12, 28, 120, 10); ctx.fillStyle = fuel < 25 ? '#ff5c5c' : '#ffb84c'; ctx.fillRect(12, 28, 120 * clamp(fuel / 100, 0, 1), 10);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText('FUEL', 12, 22);
+  const tgt = rings.length && ringsLeft > 0 ? [rings[0].x, rings[0].y, rings[0].z] : [airports[airports.length - 1].x, airports[airports.length - 1].alt + 40, airports[airports.length - 1].z];
+  const q = cam(tgt[0], tgt[1], tgt[2]);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#2fd0ff';
+  const lab = ringsLeft > 0 ? 'RINGS LEFT ' + ringsLeft : 'LAND AT THE AIRPORT';
+  ctx.fillText(lab, W / 2, 38);
+  let sx = W / 2 + F * q[0] / Math.max(q[2], 1) * (q[2] < 0 ? -1 : 1), sy = H / 2 - F * q[1] / Math.max(q[2], 1) * (q[2] < 0 ? -1 : 1);
+  const off = sx < 24 || sx > W - 24 || sy < 50 || sy > H - 24 || q[2] < 0;
+  sx = clamp(sx, 24, W - 24); sy = clamp(sy, 50, H - 24);
+  ctx.strokeStyle = '#2fd0ff'; ctx.lineWidth = 2; ctx.beginPath();
+  if (off) { ctx.arc(sx, sy, 8, 0, 7); } else { ctx.rect(sx - 10, sy - 10, 20, 20); }
+  ctx.stroke();
+  ctx.font = '800 15px sans-serif';
+  if (warn) { ctx.fillStyle = '#ff5c5c'; ctx.fillText(warn, W / 2, H * 0.3); }
+  if (bannerT > 0) { ctx.fillStyle = '#ffe27a'; ctx.font = '800 22px sans-serif'; ctx.fillText(banner, W / 2, H * 0.22); }
+}
+function crash(why) { return end(why); }
+function land() {
+  const bonus = 500 + Math.round(fuel) * 3 + level * 100;
+  score += bonus; landings++; level++; fuel = 100;
+  const ap = airports[airports.length - 1];
+  P.x = ap.x - Math.sin(ap.hd) * 300; P.z = ap.z - Math.cos(ap.hd) * 300; P.y = 220; P.yaw = ap.hd; P.pitch = 0; P.roll = 0; P.v = 85; throttle = 0.6;
+  say('LANDED! +' + bonus + ' and refuelled'); NexusScore.tone(660, 0, 0.3, 'sine', 0.06); NexusScore.tone(880, 0.15, 0.3, 'sine', 0.06);
+  newMission(); hud();
+}
+function update(dt) {
+  const inR = clamp((keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0) + ax, -1, 1);
+  const inP = clamp((keys.arrowup ? 1 : 0) - (keys.arrowdown ? 1 : 0) + ay, -1, 1);
+  throttle = clamp(throttle + ((keys.w ? 1 : 0) - (keys.s ? 1 : 0)) * 0.6 * dt, 0, 1);
+  P.roll += inR * 1.9 * dt; if (!inR) P.roll *= Math.pow(0.4, dt); P.roll = clamp(P.roll, -1.15, 1.15);
+  P.pitch = clamp(P.pitch + inP * 0.95 * dt, -1.0, 1.0);
+  const tgt = fuel > 0 ? 36 + throttle * 96 : 0;
+  P.v += (tgt - P.v) * 0.6 * dt - Math.sin(P.pitch) * 38 * dt;
+  P.v = clamp(P.v, 22, 180);
+  stalled = P.v < 40;
+  if (stalled) P.pitch -= (40 - P.v) * 0.03 * dt;
+  if (P.y > 2400) P.pitch -= 0.6 * dt;
+  P.yaw += 9.8 * 4 * Math.tan(P.roll) / Math.max(60, P.v) * dt;
+  CR = P.roll * 0.75;
+  const f = fwd(P.yaw, P.pitch), px = P.x, py = P.y, pz = P.z;
+  P.x += f[0] * P.v * dt; P.y += f[1] * P.v * dt; P.z += f[2] * P.v * dt; P.vy = f[1] * P.v;
+  fuel -= (0.4 + throttle * 1.2) * dt;
+  if (fuel <= 0) { fuel = 0; if (!running) return; return end('Out of fuel'); }
+  if (bannerT > 0) bannerT -= dt;
+  const r = rings[0];
+  if (r && ringsLeft > 0) {
+    const sd = (P.x - r.x) * r.nx + (P.z - r.z) * r.nz, psd = (px - r.x) * r.nx + (pz - r.z) * r.nz;
+    if (psd < 0 && sd >= 0) {
+      const t = psd / (psd - sd), cx = px + (P.x - px) * t, cy = py + (P.y - py) * t, cz = pz + (P.z - pz) * t;
+      const dist = Math.hypot(cx - r.x, cy - r.y, cz - r.z);
+      if (dist < r.R * 1.15) { score += Math.round(100 * (1 + Math.min(chain, 5) * 0.25)); chain++; fuel = Math.min(100, fuel + 15); ringsDone++; say('RING! x' + chain); NexusScore.tone(520 + chain * 60, 0, 0.12, 'triangle', 0.06); }
+      else { chain = 0; say('Missed the ring'); NexusScore.tone(160, 0, 0.2, 'sawtooth', 0.05); }
+      rings.shift(); ringsLeft--; hud();
+      if (ringsLeft > 0) { if (rings.length < 3) addRing(); }
+      else { const l = rings.length ? rings[0] : { x: P.x, z: P.z, hd: P.yaw }; const hd = P.yaw; airports.push(mkAirport(P.x + Math.sin(hd) * 2600, P.z + Math.cos(hd) * 2600, hd)); if (airports.length > 2) airports.shift(); rings = []; say('Airport ahead - land on the runway!'); }
+    } else if (sd > r.R * 3 && Math.hypot(P.x - r.x, P.z - r.z) > 1200 && psd >= 0) { chain = 0; rings.shift(); ringsLeft--; if (ringsLeft > 0) { if (rings.length < 3) addRing(); } else { airports.push(mkAirport(P.x + Math.sin(P.yaw) * 2600, P.z + Math.cos(P.yaw) * 2600, P.yaw)); if (airports.length > 2) airports.shift(); rings = []; say('Airport ahead - land on the runway!'); } }
+  }
+  const gh = height(P.x, P.z);
+  warn = '';
+  if (stalled) warn = 'STALL - NOSE DOWN / ADD THROTTLE';
+  else if (P.y - gh < 130 && P.vy < -6) warn = 'PULL UP!';
+  else { const ah = height(P.x + f[0] * 700, P.z + f[2] * 700); if (ah > P.y - 40) warn = 'TERRAIN AHEAD'; }
+  if (fuel < 20 && !warn) warn = 'LOW FUEL';
+  if (P.y < gh + 3) {
+    const ap = airports[airports.length - 1], dx = P.x - ap.x, dz = P.z - ap.z;
+    const lx = dx * Math.cos(ap.hd) - dz * Math.sin(ap.hd), lz = dx * Math.sin(ap.hd) + dz * Math.cos(ap.hd);
+    const onRunway = Math.abs(lx) < ap.wid / 2 + 15 && Math.abs(lz) < ap.len / 2;
+    if (!onRunway) return crash(gh <= 0.5 ? 'Crashed into the sea' : 'Crashed into the ground');
+    if (P.v > 66) return crash('Landed too fast (' + Math.round(P.v * 1.94) + ' kt)');
+    if (P.vy < -9) return crash('Hard landing');
+    if (Math.abs(P.roll) > 0.35) return crash('Wing struck the runway');
+    if (P.pitch > 0.3 || P.pitch < -0.2) return crash('Bad landing angle');
+    if (ringsLeft > 0) { P.y = gh + 3; P.pitch = 0.1; return; }
+    land();
+  }
+}
+function loop(t) {
+  if (!running) return;
+  const dt = Math.min(0.05, lastT ? (t - lastT) / 1000 : 0.016); lastT = t;
+  update(dt);
+  if (!running) return;
+  drawWorld(); drawPlane(); drawHud();
+  animId = requestAnimationFrame(loop);
+}
+function end(why) {
+  running = false; cancelAnimationFrame(animId);
+  if (score > best) { best = score; localStorage.setItem('flight-best', best); $('bestEl').textContent = best; }
+  showEnd(why, 'You scored <b>' + score + '</b> after flying <b>' + ringsDone + '</b> rings and making <b>' + landings + '</b> landing(s). Best: <b>' + best + '</b>', 'Fly Again');
+  NexusScore.submit(GAME_NAME, score);
+}
+addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true; if (k.startsWith('arrow') || k === ' ') e.preventDefault(); });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+let drag = null;
+function cpos(e) { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) * (W / r.width), (e.clientY - r.top) * (H / r.height)]; }
+canvas.addEventListener('pointerdown', e => {
+  const [x, y] = cpos(e);
+  if (x > W - 70) { throttle = clamp(1 - (y - 70) / (H - 140), 0, 1); drag = { thr: true }; } else drag = { x, y };
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return; const [x, y] = cpos(e);
+  if (drag.thr) throttle = clamp(1 - (y - 70) / (H - 140), 0, 1);
+  else { ax = clamp((x - drag.x) / 60, -1, 1); ay = clamp((drag.y - y) / 60, -1, 1); }
+});
+const rel = () => { drag = null; ax = 0; ay = 0; };
+canvas.addEventListener('pointerup', rel); canvas.addEventListener('pointercancel', rel);
+
+startBtn.addEventListener('click', start);
+</script>
+
+<script>
+(function(){
+  function report(message, stack){
+    try {
+      fetch('/api/games/nexus-flight/report-error', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: String(message).slice(0,500), stack: String(stack||'').slice(0,2000)})
+      });
+    } catch(e) {}
+  }
+  window.addEventListener('error', function(e){ report(e.message, e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function(e){
+    report('Unhandled promise rejection: ' + e.reason, e.reason && e.reason.stack);
+  });
+})();
+</script>
+<script src="/track.js" defer></script>
+</body>
+</html>

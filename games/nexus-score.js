@@ -228,7 +228,7 @@ window.NexusScore = {
     'nebula-runner': 'Nebula Runner', 'castle-siege': 'Castle Siege', 'pixel-sprint': 'Pixel Sprint',
     'space-race': 'Space Race', 'puzzle-forge': 'Puzzle Forge', 'boss-rush': 'Boss Rush',
     'nexus-breaker': 'Nexus Breaker', 'neon-snake': 'Neon Snake', 'flap-nexus': 'Flap Nexus', 'tile-merge': 'Tile Merge', 'nexus-farm': 'Nexus Farm',
-    'stack-tower': 'Stack Tower', 'hop-nexus': 'Hop Nexus', 'reflex-rush': 'Reflex Rush' };
+    'stack-tower': 'Stack Tower', 'hop-nexus': 'Hop Nexus', 'reflex-rush': 'Reflex Rush', 'nexus-flight': 'Nexus Flight' };
   const slug = location.pathname.split('/').pop().replace('.html', '');
   document.addEventListener('DOMContentLoaded', () => {
     if (GAMES[slug] && document.getElementById('msg')) {
