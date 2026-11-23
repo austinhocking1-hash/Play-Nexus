@@ -78,7 +78,7 @@ function height(x, z) {
   let h = Math.max(0, (n - 0.4) * 1150);
   for (const a of airports) {
     const d = Math.hypot(x - a.x, z - a.z);
-    if (d < 1100) { const t = clamp((d - 500) / 600, 0, 1), s = t * t * (3 - 2 * t); h = a.alt + (h - a.alt) * s; }
+    if (d < 1800) { const t = clamp((d - 800) / 1000, 0, 1), s = t * t * (3 - 2 * t); h = a.alt + (h - a.alt) * s; }
   }
   return h;
 }
