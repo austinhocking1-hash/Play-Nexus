@@ -40,7 +40,7 @@
   <span>Rings: <b id="ringEl">0</b></span>
   <span>Best: <b id="bestEl">0</b></span>
 </div>
-<p class="controls-hint">Controls: Arrows steer (Up = nose up, Left/Right = bank), W/S throttle. On a phone drag to steer and use the throttle bar on the right. Land slow, level, on the runway.</p>
+<p class="controls-hint">Controls: Arrows steer (Up = nose up, Left/Right = bank). THROTTLE: W / Shift = more, S / Ctrl = less, or tap the + and − buttons and drag the bar on the right of the screen. The plane levels itself when you let go. Land slow and level.</p>
 <div class="ad-slot"></div>
 <script src="../ads.js"></script>
 
@@ -82,14 +82,14 @@ function height(x, z) {
   }
   return h;
 }
-function mkAirport(x, z, hd) { return { x, z, hd, alt: 20, len: 760, wid: 70 }; }
+function mkAirport(x, z, hd) { return { x, z, hd, alt: 20, len: 900, wid: 110 }; }
 function fwd(yaw, pitch) { return [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)]; }
 function addRing() {
   const last = rings.length ? rings[rings.length - 1] : { x: P.x, z: P.z, hd: P.yaw };
-  const hd = last.hd + (Math.random() - 0.5) * 1.1, dist = 1500 + Math.random() * 700;
+  const hd = last.hd + (Math.random() - 0.5) * 0.7, dist = 1200 + Math.random() * 500;
   const x = last.x + Math.sin(hd) * dist, z = last.z + Math.cos(hd) * dist, g = height(x, z);
-  const R = Math.max(38, 66 - level * 3);
-  rings.push({ x, z, hd, y: clamp(g + R + 70 + Math.random() * 280, 120, 1500), R, nx: Math.sin(hd), nz: Math.cos(hd), prev: null });
+  const R = Math.max(60, 95 - level * 3);
+  rings.push({ x, z, hd, y: clamp(g + R + 90 + Math.random() * 200, 150, 1200), R, nx: Math.sin(hd), nz: Math.cos(hd), prev: null });
 }
 function newMission() {
   rings = []; ringsLeft = 4 + level;
@@ -98,8 +98,8 @@ function newMission() {
 function start() {
   msg.classList.add('hidden');
   airports = [mkAirport(0, 0, 0)];
-  P = { x: 0, y: 380, z: -2600, yaw: 0, pitch: 0, roll: 0, v: 85, vy: 0 };
-  throttle = 0.6; fuel = 100; score = 0; chain = 0; level = 1; ringsDone = 0; landings = 0; banner = ''; bannerT = 0; lastT = 0; running = true;
+  P = { x: 0, y: 380, z: -2600, yaw: 0, pitch: 0, roll: 0, v: 70, vy: 0 };
+  throttle = 0.5; fuel = 100; score = 0; chain = 0; level = 1; ringsDone = 0; landings = 0; banner = ''; bannerT = 0; lastT = 0; running = true;
   newMission(); hud();
   cancelAnimationFrame(animId); animId = requestAnimationFrame(loop);
 }
@@ -203,8 +203,13 @@ function drawHud() {
   const agl = P.y - height(P.x, P.z);
   ctx.textAlign = 'left'; ctx.fillText('SPD ' + Math.round(P.v * 1.94) + ' kt', 12, H - 62); ctx.fillText('ALT ' + Math.round(P.y) + ' m', 12, H - 46); ctx.fillText('AGL ' + Math.round(agl) + ' m', 12, H - 30);
   ctx.textAlign = 'center'; ctx.fillText('HDG ' + String(Math.round(((P.yaw * 57.2958) % 360 + 360) % 360)).padStart(3, '0'), W / 2, 20);
-  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(W - 40, 70, 12, H - 140); ctx.fillStyle = '#4ade80'; ctx.fillRect(W - 40, 70 + (H - 140) * (1 - throttle), 12, (H - 140) * throttle);
-  ctx.fillStyle = '#fff'; ctx.font = '700 11px sans-serif'; ctx.fillText('THR', W - 34, 62);
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(W - 62, 36, 52, H - 72);
+  ctx.fillStyle = '#4ade80'; ctx.fillRect(W - 50, 76 + (H - 152) * (1 - throttle), 28, (H - 152) * throttle);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(W - 50, 76, 28, H - 152);
+  ctx.fillStyle = '#2a2d54'; ctx.fillRect(W - 56, 40, 40, 30); ctx.fillRect(W - 56, H - 70, 40, 30);
+  ctx.fillStyle = '#fff'; ctx.font = '800 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('+', W - 36, 62); ctx.fillText('\u2212', W - 36, H - 48);
+  ctx.font = '700 11px sans-serif'; ctx.fillText(Math.round(throttle * 100) + '%', W - 36, H / 2 + 4);
+  ctx.fillText('THROTTLE', W - 36, 32);
   ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(12, 28, 120, 10); ctx.fillStyle = fuel < 25 ? '#ff5c5c' : '#ffb84c'; ctx.fillRect(12, 28, 120 * clamp(fuel / 100, 0, 1), 10);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText('FUEL', 12, 22);
   const tgt = rings.length && ringsLeft > 0 ? [rings[0].x, rings[0].y, rings[0].z] : [airports[airports.length - 1].x, airports[airports.length - 1].alt + 40, airports[airports.length - 1].z];
@@ -227,27 +232,30 @@ function land() {
   const bonus = 500 + Math.round(fuel) * 3 + level * 100;
   score += bonus; landings++; level++; fuel = 100;
   const ap = airports[airports.length - 1];
-  P.x = ap.x - Math.sin(ap.hd) * 300; P.z = ap.z - Math.cos(ap.hd) * 300; P.y = 220; P.yaw = ap.hd; P.pitch = 0; P.roll = 0; P.v = 85; throttle = 0.6;
+  P.x = ap.x - Math.sin(ap.hd) * 300; P.z = ap.z - Math.cos(ap.hd) * 300; P.y = 220; P.yaw = ap.hd; P.pitch = 0; P.roll = 0; P.v = 70; throttle = 0.5;
   say('LANDED! +' + bonus + ' and refuelled'); NexusScore.tone(660, 0, 0.3, 'sine', 0.06); NexusScore.tone(880, 0.15, 0.3, 'sine', 0.06);
   newMission(); hud();
 }
 function update(dt) {
   const inR = clamp((keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0) + ax, -1, 1);
   const inP = clamp((keys.arrowup ? 1 : 0) - (keys.arrowdown ? 1 : 0) + ay, -1, 1);
-  throttle = clamp(throttle + ((keys.w ? 1 : 0) - (keys.s ? 1 : 0)) * 0.6 * dt, 0, 1);
+  throttle = clamp(throttle + ((keys.w || keys.shift ? 1 : 0) - (keys.s || keys.control ? 1 : 0)) * 0.6 * dt, 0, 1);
   P.roll += inR * 1.9 * dt; if (!inR) P.roll *= Math.pow(0.4, dt); P.roll = clamp(P.roll, -1.15, 1.15);
   P.pitch = clamp(P.pitch + inP * 0.95 * dt, -1.0, 1.0);
-  const tgt = fuel > 0 ? 36 + throttle * 96 : 0;
+  if (!inP) P.pitch *= Math.pow(0.5, dt);
+  { const g0 = height(P.x, P.z), ap0 = airports[airports.length - 1], near = Math.hypot(P.x - ap0.x, P.z - ap0.z) < 1600;
+    if (!near && P.y - g0 < 70 && P.pitch < 0.25) P.pitch += 1.3 * dt; }
+  const tgt = fuel > 0 ? 32 + throttle * 80 : 0;
   P.v += (tgt - P.v) * 0.6 * dt - Math.sin(P.pitch) * 38 * dt;
-  P.v = clamp(P.v, 22, 180);
-  stalled = P.v < 40;
-  if (stalled) P.pitch -= (40 - P.v) * 0.03 * dt;
+  P.v = clamp(P.v, 20, 150);
+  stalled = P.v < 32;
+  if (stalled) P.pitch -= (32 - P.v) * 0.03 * dt;
   if (P.y > 2400) P.pitch -= 0.6 * dt;
   P.yaw += 9.8 * 4 * Math.tan(P.roll) / Math.max(60, P.v) * dt;
   CR = P.roll * 0.75;
   const f = fwd(P.yaw, P.pitch), px = P.x, py = P.y, pz = P.z;
   P.x += f[0] * P.v * dt; P.y += f[1] * P.v * dt; P.z += f[2] * P.v * dt; P.vy = f[1] * P.v;
-  fuel -= (0.4 + throttle * 1.2) * dt;
+  fuel -= (0.25 + throttle * 0.7) * dt;
   if (fuel <= 0) { fuel = 0; if (!running) return; return end('Out of fuel'); }
   if (bannerT > 0) bannerT -= dt;
   const r = rings[0];
@@ -256,7 +264,7 @@ function update(dt) {
     if (psd < 0 && sd >= 0) {
       const t = psd / (psd - sd), cx = px + (P.x - px) * t, cy = py + (P.y - py) * t, cz = pz + (P.z - pz) * t;
       const dist = Math.hypot(cx - r.x, cy - r.y, cz - r.z);
-      if (dist < r.R * 1.15) { score += Math.round(100 * (1 + Math.min(chain, 5) * 0.25)); chain++; fuel = Math.min(100, fuel + 15); ringsDone++; say('RING! x' + chain); NexusScore.tone(520 + chain * 60, 0, 0.12, 'triangle', 0.06); }
+      if (dist < r.R * 1.5) { score += Math.round(100 * (1 + Math.min(chain, 5) * 0.25)); chain++; fuel = Math.min(100, fuel + 20); ringsDone++; say('RING! x' + chain); NexusScore.tone(520 + chain * 60, 0, 0.12, 'triangle', 0.06); }
       else { chain = 0; say('Missed the ring'); NexusScore.tone(160, 0, 0.2, 'sawtooth', 0.05); }
       rings.shift(); ringsLeft--; hud();
       if (ringsLeft > 0) { if (rings.length < 3) addRing(); }
@@ -268,16 +276,17 @@ function update(dt) {
   if (stalled) warn = 'STALL - NOSE DOWN / ADD THROTTLE';
   else if (P.y - gh < 130 && P.vy < -6) warn = 'PULL UP!';
   else { const ah = height(P.x + f[0] * 700, P.z + f[2] * 700); if (ah > P.y - 40) warn = 'TERRAIN AHEAD'; }
+  if (ringsLeft === 0 && !warn) { const ap1 = airports[airports.length - 1]; if (Math.hypot(P.x - ap1.x, P.z - ap1.z) < 1800 && P.v > 70) warn = 'APPROACH: REDUCE THROTTLE (S), WINGS LEVEL'; }
   if (fuel < 20 && !warn) warn = 'LOW FUEL';
   if (P.y < gh + 3) {
     const ap = airports[airports.length - 1], dx = P.x - ap.x, dz = P.z - ap.z;
     const lx = dx * Math.cos(ap.hd) - dz * Math.sin(ap.hd), lz = dx * Math.sin(ap.hd) + dz * Math.cos(ap.hd);
     const onRunway = Math.abs(lx) < ap.wid / 2 + 15 && Math.abs(lz) < ap.len / 2;
     if (!onRunway) return crash(gh <= 0.5 ? 'Crashed into the sea' : 'Crashed into the ground');
-    if (P.v > 66) return crash('Landed too fast (' + Math.round(P.v * 1.94) + ' kt)');
-    if (P.vy < -9) return crash('Hard landing');
-    if (Math.abs(P.roll) > 0.35) return crash('Wing struck the runway');
-    if (P.pitch > 0.3 || P.pitch < -0.2) return crash('Bad landing angle');
+    if (P.v > 80) return crash('Landed too fast (' + Math.round(P.v * 1.94) + ' kt)');
+    if (P.vy < -14) return crash('Hard landing');
+    if (Math.abs(P.roll) > 0.5) return crash('Wing struck the runway');
+    if (P.pitch > 0.4 || P.pitch < -0.3) return crash('Bad landing angle');
     if (ringsLeft > 0) { P.y = gh + 3; P.pitch = 0.1; return; }
     land();
   }
@@ -302,12 +311,12 @@ let drag = null;
 function cpos(e) { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) * (W / r.width), (e.clientY - r.top) * (H / r.height)]; }
 canvas.addEventListener('pointerdown', e => {
   const [x, y] = cpos(e);
-  if (x > W - 70) { throttle = clamp(1 - (y - 70) / (H - 140), 0, 1); drag = { thr: true }; } else drag = { x, y };
+  if (x > W - 66) { if (y < 72) throttle = clamp(throttle + 0.1, 0, 1); else if (y > H - 72) throttle = clamp(throttle - 0.1, 0, 1); else throttle = clamp(1 - (y - 76) / (H - 152), 0, 1); drag = { thr: true }; } else drag = { x, y };
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
 });
 canvas.addEventListener('pointermove', e => {
   if (!drag) return; const [x, y] = cpos(e);
-  if (drag.thr) throttle = clamp(1 - (y - 70) / (H - 140), 0, 1);
+  if (drag.thr) { if (y > 72 && y < H - 72) throttle = clamp(1 - (y - 76) / (H - 152), 0, 1); }
   else { ax = clamp((x - drag.x) / 60, -1, 1); ay = clamp((drag.y - y) / 60, -1, 1); }
 });
 const rel = () => { drag = null; ax = 0; ay = 0; };
